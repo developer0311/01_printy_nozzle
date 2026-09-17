@@ -5886,6 +5886,7 @@ function AdminShipmentCard({ order, orderType, onChanged }) {
 function AdminOrderDetail({ order, loading, onBack, onStatusUpdate, onTrackingUpdate, onShipmentChange, statusOptions, money }) {
   const [trackingForm, setTrackingForm] = useState({});
   const [trackingSaved, setTrackingSaved] = useState(false);
+  const [invoiceBusy, setInvoiceBusy] = useState(false);
 
   useEffect(() => {
     if (order?.id) {
@@ -5905,6 +5906,19 @@ function AdminOrderDetail({ order, loading, onBack, onStatusUpdate, onTrackingUp
       notes: trackingForm.notes?.trim() || null,
     });
     setTrackingSaved(true);
+  };
+
+  const downloadInvoice = async () => {
+    if (!order?.id || invoiceBusy) return;
+    setInvoiceBusy(true);
+    try {
+      const filename = await adminService.downloadOrderInvoicePdf(order.id);
+      toast.success(`Invoice ${filename} downloaded.`);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Unable to download invoice");
+    } finally {
+      setInvoiceBusy(false);
+    }
   };
 
   if (loading) return <div className="admin-empty">Loading order details…</div>;
@@ -5937,10 +5951,16 @@ function AdminOrderDetail({ order, loading, onBack, onStatusUpdate, onTrackingUp
           <h2>Order #{order.order_number}</h2>
           <span className="admin-detail-date">{formatDate(order.created_at)}</span>
         </div>
-        <span className={`admin-detail-status-badge ${order.status}`}>
-          {statusIcon(order.status)}
-          <span>{order.status}</span>
-        </span>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <button type="button" className="admin-primary small" disabled={invoiceBusy} onClick={downloadInvoice}>
+            <Download size={15} />
+            <span>{invoiceBusy ? "Loading…" : "Download Invoice"}</span>
+          </button>
+          <span className={`admin-detail-status-badge ${order.status}`}>
+            {statusIcon(order.status)}
+            <span>{order.status}</span>
+          </span>
+        </div>
       </div>
 
       <div className="admin-detail-grid">
@@ -6134,6 +6154,7 @@ function AdminOrderDetail({ order, loading, onBack, onStatusUpdate, onTrackingUp
 function AdminPrintOrderDetail({ order, loading, onBack, onStatusUpdate, onNotesUpdate, onShipmentChange, statusOptions, money }) {
   const [notesForm, setNotesForm] = useState("");
   const [notesSaved, setNotesSaved] = useState(false);
+  const [invoiceBusy, setInvoiceBusy] = useState(false);
 
   useEffect(() => {
     if (order?.id) {
@@ -6145,6 +6166,19 @@ function AdminPrintOrderDetail({ order, loading, onBack, onStatusUpdate, onNotes
   const saveNotes = () => {
     onNotesUpdate(order.id, notesForm);
     setNotesSaved(true);
+  };
+
+  const downloadInvoice = async () => {
+    if (!order?.id || invoiceBusy) return;
+    setInvoiceBusy(true);
+    try {
+      const filename = await adminService.downloadPrintInvoicePdf(order.id);
+      toast.success(`Invoice ${filename} downloaded.`);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Unable to download invoice");
+    } finally {
+      setInvoiceBusy(false);
+    }
   };
   if (loading) return <div className="admin-empty">Loading order details…</div>;
   if (!order) return null;
@@ -6179,10 +6213,16 @@ function AdminPrintOrderDetail({ order, loading, onBack, onStatusUpdate, onNotes
           <h2>3D Print Order #{order.order_number}</h2>
           <span className="admin-detail-date">{formatDate(order.created_at)}</span>
         </div>
-        <span className={`admin-detail-status-badge ${order.status}`}>
-          {statusIcon(order.status)}
-          <span>{order.status?.replace(/_/g, " ")}</span>
-        </span>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <button type="button" className="admin-primary small" disabled={invoiceBusy} onClick={downloadInvoice}>
+            <Download size={15} />
+            <span>{invoiceBusy ? "Loading…" : "Download Invoice"}</span>
+          </button>
+          <span className={`admin-detail-status-badge ${order.status}`}>
+            {statusIcon(order.status)}
+            <span>{order.status?.replace(/_/g, " ")}</span>
+          </span>
+        </div>
       </div>
 
       <div className="admin-detail-grid">

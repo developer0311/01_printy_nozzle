@@ -9,6 +9,7 @@ const {
   createPrintOrder,
   getUserPrintOrders,
   getPrintOrderById,
+  getPrintOrderInvoice,
 } = require("../controllers/printingControllers");
 const { protect } = require("../middlewares/authMiddlewares");
 const { printFileUpload } = require("../middlewares/uploadMiddleware");
@@ -23,6 +24,7 @@ router.post("/upload", printFileUpload.single("file"), uploadPrintFile);
 // Authenticated print order endpoints
 router.post("/order", protect, createPrintOrder);
 router.get("/orders", protect, getUserPrintOrders);
+router.get("/orders/:id/invoice", protect, getPrintOrderInvoice);
 router.get("/orders/:id", protect, getPrintOrderById);
 
 module.exports = router;

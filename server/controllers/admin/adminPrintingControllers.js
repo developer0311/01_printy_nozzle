@@ -286,9 +286,83 @@ const deleteColor = async (req, res) => {
   }
 };
 
+/* ===================== GET PRINT ORDER INVOICE (ADMIN, JSON / PDF) ===================== */
+const getPrintOrderInvoice = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const isNumeric = /^\d+$/.test(String(id).trim());
+    const queryField = isNumeric ? "po.id = ?" : "po.order_number = ?";
+
+    const [rows] = await db.query(
+      `SELECT po.*,
+              u.first_name, u.last_name, u.email AS customer_email, u.phone AS user_phone,
+              m.name AS material_name, c.name AS color_name, c.hex_code AS color_hex
+       FROM printing_orders po
+       LEFT JOIN users u ON po.user_id = u.id
+       LEFT JOIN printing_materials m ON po.material_id = m.id
+       LEFT JOIN printing_colors c ON po.color_id = c.id
+       WHERE ${queryField}`,
+      [String(id).trim()]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: "3D print order not found" });
+    }
+
+    const {
+      getInvoiceSettings,
+      buildPrintInvoiceData,
+      generateInvoicePdf,
+      invoiceFileName,
+    } = require("../../utils/invoice");
+    const settings = await getInvoiceSettings();
+    const data = buildPrintInvoiceData({ prints: rows, settings });
+
+    // ?format=pdf → download the GST invoice PDF.
+    if (String(req.query.format || "").toLowerCase() === "pdf") {
+      const pdf = await generateInvoicePdf(data);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${invoiceFileName(data)}"`);
+      res.setHeader("Content-Length", pdf.length);
+      return res.send(pdf);
+    }
+
+    return res.status(200).json({
+      success: true,
+      invoice: {
+        invoice_number: data.invoiceNumber,
+        invoice_date: data.invoiceDate,
+        order_number: rows[0].order_number,
+        company: {
+          name: settings.company.name,
+          address: settings.company.address,
+          gstin: settings.company.gstin,
+          email: settings.company.email,
+          phone: settings.company.phone,
+        },
+        customer: data.customer,
+        lines: data.lines,
+        financials: {
+          subtotal: data.subtotal,
+          discount: data.discount,
+          gst_rate: `${data.gstRate}%`,
+          tax_amount: data.taxTotal,
+          grand_total: data.grandTotal,
+          amount_in_words: data.amountWords,
+        },
+        payment: data.payment,
+      },
+    });
+  } catch (error) {
+    console.error("Admin getPrintOrderInvoice error:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 module.exports = {
   getAllPrintOrders,
   getPrintOrderDetails,
+  getPrintOrderInvoice,
   updatePrintOrderStatus,
   getAllMaterials,
   createMaterial,

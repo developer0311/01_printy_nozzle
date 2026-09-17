@@ -19,6 +19,13 @@ try {
   console.warn("⚠️ delhiverySchema preload skipped:", e.message);
 }
 
+// Seed Printynozzle invoice company settings (idempotent)
+try {
+  require("./utils/invoiceSchema");
+} catch (e) {
+  console.warn("⚠️ invoiceSchema preload skipped:", e.message);
+}
+
 // Client Routers
 const authRoutes = require("./routers/authRoutes");
 const profileRoutes = require("./routers/profileRoutes");

@@ -3,6 +3,7 @@ const router = express.Router();
 const {
   getAllPrintOrders,
   getPrintOrderDetails,
+  getPrintOrderInvoice,
   updatePrintOrderStatus,
   getAllMaterials,
   createMaterial,
@@ -19,6 +20,7 @@ router.use(protect, authorizeRoles("admin"));
 
 // Print orders
 router.get("/orders", getAllPrintOrders);
+router.get("/orders/:id/invoice", getPrintOrderInvoice);
 router.get("/orders/:id", getPrintOrderDetails);
 router.put("/orders/:id/status", updatePrintOrderStatus);
 

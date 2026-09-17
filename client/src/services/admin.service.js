@@ -1,5 +1,22 @@
 import api from "./api.js";
 
+const downloadPdf = (response, fallbackName) => {
+  const blob = new Blob([response.data], { type: "application/pdf" });
+  let filename = fallbackName;
+  const disposition = response.headers?.["content-disposition"] || "";
+  const match = /filename="?([^";]+)"?/i.exec(disposition);
+  if (match?.[1]) filename = match[1];
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+  return filename;
+};
+
 const adminService = {
   getStats: () => api.get("/admin/dashboard/stats"),
   getSalesChart: () => api.get("/admin/dashboard/sales-chart"),
@@ -16,10 +33,26 @@ const adminService = {
   getOrders: (params = {}) => api.get("/admin/orders", { params }),
   getOrderDetails: (id) => api.get(`/admin/orders/${id}`),
   updateOrderStatus: (id, payload) => api.put(`/admin/orders/${id}/status`, payload),
+  getOrderInvoice: (id) => api.get(`/admin/orders/${id}/invoice`),
+  downloadOrderInvoicePdf: async (id) => {
+    const response = await api.get(`/admin/orders/${id}/invoice`, {
+      params: { format: "pdf" },
+      responseType: "blob",
+    });
+    return downloadPdf(response, `Invoice-INV-${id}.pdf`);
+  },
   getPrintOrders: (params = {}) => api.get("/admin/printing/orders", { params }),
   getPrintOrderDetails: (id) => api.get(`/admin/printing/orders/${id}`),
   updatePrintOrderStatus: (id, payload) =>
     api.put(`/admin/printing/orders/${id}/status`, payload),
+  getPrintOrderInvoice: (id) => api.get(`/admin/printing/orders/${id}/invoice`),
+  downloadPrintInvoicePdf: async (id) => {
+    const response = await api.get(`/admin/printing/orders/${id}/invoice`, {
+      params: { format: "pdf" },
+      responseType: "blob",
+    });
+    return downloadPdf(response, `Invoice-INV-${id}.pdf`);
+  },
   getUsers: (params = {}) => api.get("/admin/users", { params }),
   getUserById: (id) => api.get(`/admin/users/${id}`),
   createUser: (payload) => api.post("/admin/users", payload),

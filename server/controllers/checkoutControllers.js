@@ -4,6 +4,12 @@ const crypto = require("crypto");
 const { calculateCouponTotals, round2 } = require("../utils/couponHelper");
 const { ensurePrintCartSchema } = require("../utils/printCartSchema");
 const { sendPaymentConfirmationMail } = require("../utils/mailer");
+const {
+  getInvoiceSettings,
+  buildOrderInvoiceData,
+  buildPrintInvoiceData,
+  generateInvoicePdf,
+} = require("../utils/invoice");
 const { triggerAutoShipment } = require("../utils/shippingSync");
 require("dotenv").config();
 
@@ -224,7 +230,11 @@ const verifyPayment = async (req, res) => {
       // Prepaid prints are now payable → auto-create Delhivery shipments.
       printIds.forEach((pid) => triggerAutoShipment("print", pid));
       const [printRows] = await db.query(
-        `SELECT * FROM printing_orders WHERE id IN (${printIds.map(() => "?").join(",")}) AND user_id = ?`,
+        `SELECT po.*, pm.name AS material_name, pc.name AS color_name
+         FROM printing_orders po
+         LEFT JOIN printing_materials pm ON po.material_id = pm.id
+         LEFT JOIN printing_colors pc ON po.color_id = pc.id
+         WHERE po.id IN (${printIds.map(() => "?").join(",")}) AND po.user_id = ?`,
         [...printIds, req.user.id]
       );
       const first = printRows[0] || null;
@@ -240,6 +250,17 @@ const verifyPayment = async (req, res) => {
           ]);
           const customer = userRows[0] || {};
           const recipient = first.shipping_email || customer.email;
+          // GST invoice PDF for the 3D-print purchase (attached to the mail).
+          let invoicePdf = null;
+          let invoiceNumber = null;
+          try {
+            const settings = await getInvoiceSettings();
+            const invoiceData = buildPrintInvoiceData({ prints: printRows, settings });
+            invoiceNumber = invoiceData.invoiceNumber;
+            invoicePdf = await generateInvoicePdf(invoiceData);
+          } catch (pdfError) {
+            console.error("Invoice PDF build failed:", pdfError.message);
+          }
           sendPaymentConfirmationMail({
             to: recipient,
             name: first.shipping_name || `${customer.first_name || ""} ${customer.last_name || ""}`.trim(),
@@ -249,6 +270,8 @@ const verifyPayment = async (req, res) => {
               quantity: r.quantity,
               total: r.total_amount,
             })),
+            invoicePdf,
+            invoiceNumber,
           }).catch(() => {});
         } catch (mailError) {
           console.error("Confirmation email lookup failed:", mailError.message);
@@ -273,20 +296,42 @@ const verifyPayment = async (req, res) => {
     // Payment confirmation email (fire-and-forget — never blocks the response)
     if (confirmedOrder) {
       try {
-        const [itemRows] = await db.query(
-          "SELECT product_name, variant_value, quantity, price, total FROM order_items WHERE order_id = ?",
-          [confirmedOrder.id]
-        );
+        let itemRows;
+        try {
+          [itemRows] = await db.query(
+            "SELECT product_id, item_type, product_name, variant_value, quantity, price, total FROM order_items WHERE order_id = ?",
+            [confirmedOrder.id]
+          );
+        } catch (colError) {
+          // Older installs without the print-aware order_items columns.
+          [itemRows] = await db.query(
+            "SELECT product_id, product_name, variant_value, quantity, price, total FROM order_items WHERE order_id = ?",
+            [confirmedOrder.id]
+          );
+        }
         const [userRows] = await db.query("SELECT first_name, last_name, email FROM users WHERE id = ?", [
           req.user.id,
         ]);
         const customer = userRows[0] || {};
         const recipient = confirmedOrder.shipping_email || customer.email;
+        // GST invoice PDF for the purchase (attached to the mail).
+        let invoicePdf = null;
+        let invoiceNumber = null;
+        try {
+          const settings = await getInvoiceSettings();
+          const invoiceData = buildOrderInvoiceData({ order: confirmedOrder, items: itemRows, settings });
+          invoiceNumber = invoiceData.invoiceNumber;
+          invoicePdf = await generateInvoicePdf(invoiceData);
+        } catch (pdfError) {
+          console.error("Invoice PDF build failed:", pdfError.message);
+        }
         sendPaymentConfirmationMail({
           to: recipient,
           name: confirmedOrder.shipping_name || `${customer.first_name || ""} ${customer.last_name || ""}`.trim(),
           order: confirmedOrder,
           items: itemRows,
+          invoicePdf,
+          invoiceNumber,
         }).catch(() => {});
       } catch (mailError) {
         console.error("Confirmation email lookup failed:", mailError.message);

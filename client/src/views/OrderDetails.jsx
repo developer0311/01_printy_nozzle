@@ -75,9 +75,10 @@ const OrderDetails = () => {
                   id: po.id,
                   name: `3D Print: ${po.file_name}`,
                   subtext: specBits.join(" · ") || "Custom 3D print",
-                  image: "/images/products/01.png",
+                  image: "/images/rocket.png",
                   price: Number(po.subtotal || po.total_amount || 0),
                   qty: 1,
+                  isPrint: true,
                 },
               ],
               trackingSteps: (po.timeline || [
@@ -126,9 +127,10 @@ const OrderDetails = () => {
           id: item.id,
           name: item.product_name,
           subtext: item.variant_value || item.category_name || "PrintyNozzle",
-          image: item.image_url || "/images/products/01.png",
+          image: item.image_url || (item.item_type === "print" ? "/images/rocket.png" : "/images/products/01.png"),
           price: Number(item.price || 0),
           qty: Number(item.quantity || 1),
+          isPrint: item.item_type === "print",
         }));
 
         if (active) {
@@ -185,7 +187,8 @@ const OrderDetails = () => {
       subtext:
         item.subtext ||
         (order?.is3DPrint ? "3D Printing & Fabrication" : "Electronics & Components"),
-      image: item.image || "/images/products/01.png",
+      image: item.image || (item.isPrint || order?.is3DPrint ? "/images/rocket.png" : "/images/products/01.png"),
+      isPrint: Boolean(item.isPrint || order?.is3DPrint),
       price: item.price || 0,
       qty: item.qty || 1
     }));
@@ -233,11 +236,17 @@ const OrderDetails = () => {
   }, [order]);
 
   // Handlers
-  const handleDownloadInvoice = () => {
-    orderService
-      .getInvoice(order.id)
-      .then(() => toast.success(`Invoice for Order #${order.id} is ready.`))
-      .catch((error) => toast.error(error?.response?.data?.message || "Unable to fetch invoice"));
+  const handleDownloadInvoice = async () => {
+    if (!order?.id) return;
+    try {
+      const isPrint = Boolean(order.is3DPrint) || /^3D/i.test(String(order.id).replace(/^#/, ""));
+      const filename = isPrint
+        ? await printingService.downloadInvoicePdf(order.id)
+        : await orderService.downloadInvoicePdf(order.id);
+      toast.success(`Invoice ${filename} downloaded.`);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Unable to fetch invoice");
+    }
   };
 
   const handleReorder = () => {
@@ -449,7 +458,7 @@ const OrderDetails = () => {
                             className="od-prod-img"
                             onError={(e) => {
                               e.target.onerror = null;
-                              e.target.src = "/images/products/01.png";
+                              e.target.src = item.isPrint ? "/images/rocket.png" : "/images/products/01.png";
                             }}
                           />
                           <div className="od-prod-meta">
