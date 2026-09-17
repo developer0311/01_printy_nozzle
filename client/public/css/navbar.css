@@ -627,6 +627,45 @@
 }
 
 
+/* Logged-in profile button becomes a pill with a dropdown caret */
+
+.nav-icon-btn.account-button-menu {
+  width: auto;
+
+  padding:
+    0 9px 0 8px;
+
+  gap: 3px;
+
+  border-radius: 999px;
+}
+
+
+.account-caret {
+  font-size: 10px;
+
+  line-height: 1;
+
+  color: #5b6675;
+
+  transition:
+    transform 0.2s ease,
+    color 0.2s ease;
+}
+
+
+.nav-icon-btn.account-button-menu:hover
+.account-caret {
+  color: var(--pn-blue);
+}
+
+
+.account-caret-open {
+  transform:
+    rotate(180deg);
+}
+
+
 /* =========================================================
    LOGIN TOOLTIP
    ========================================================= */
@@ -925,6 +964,55 @@
 
   transform:
     translateX(2px);
+}
+
+
+/* Native <button> items must look identical to link rows */
+button.account-dropdown-item {
+  width: 100%;
+
+  background: transparent;
+
+  border: none;
+
+  appearance: none;
+
+  cursor: pointer;
+
+  font-family: inherit;
+
+  text-align: left;
+}
+
+
+/* Logout row — separated, danger tint */
+.account-dropdown-item--logout {
+  margin-top: 2px;
+
+  color: #b42318;
+}
+
+.account-dropdown-item--logout
+.account-dropdown-icon {
+  background:
+    #fef1f0;
+
+  color: #b42318;
+}
+
+.account-dropdown-item--logout:hover {
+  color: #b42318;
+
+  background:
+    #fef3f2;
+}
+
+.account-dropdown-item--logout:hover
+.account-dropdown-icon {
+  background:
+    #fee4e2;
+
+  color: #b42318;
 }
 
 
@@ -2107,6 +2195,21 @@ and (min-width: 992px) {
       #f5f8fd;
 
     text-decoration: none;
+  }
+
+
+  .mobile-account-button--logout {
+    color:
+      #b42318;
+  }
+
+
+  .mobile-account-button--logout:hover {
+    color:
+      #b42318;
+
+    background:
+      #fef3f2;
   }
 
 

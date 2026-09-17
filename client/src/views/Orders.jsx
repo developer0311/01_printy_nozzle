@@ -109,7 +109,8 @@ function Orders() {
         id: item.id,
         name: item.product_name || order.file_name,
         subtext: item.variant_value || item.category_name || order.material_name || "PrintyNozzle",
-        image: item.image_url || "/images/products/01.png",
+        image: item.image_url || (item.item_type === "print" ? "/images/rocket.png" : "/images/products/01.png"),
+        isPrint: item.item_type === "print",
         price: Number(item.price || order.total_amount || 0),
         qty: Number(item.quantity || order.quantity || 1),
       }));
@@ -239,10 +240,16 @@ function Orders() {
     }
   };
 
-  const handleDownloadInvoice = async (orderId) => {
+  const handleDownloadInvoice = async (orderOrId) => {
     try {
-      await orderService.getInvoice(orderId);
-      toast.success(`Invoice for Order #${orderId} is ready.`);
+      const orderObj = typeof orderOrId === "object" ? orderOrId : orders.find((o) => String(o.id) === String(orderOrId));
+      const orderId = typeof orderOrId === "object" ? orderOrId.id : orderOrId;
+      const isPrint =
+        Boolean(orderObj?.is3DPrint) || /^3D/i.test(String(orderId || "").replace(/^#/, ""));
+      const filename = isPrint
+        ? await printingService.downloadInvoicePdf(orderId)
+        : await orderService.downloadInvoicePdf(orderId);
+      toast.success(`Invoice ${filename} downloaded.`);
     } catch (error) {
       toast.error(error?.response?.data?.message || "Unable to fetch invoice");
     }
@@ -510,7 +517,7 @@ function Orders() {
                                   alt={item.name}
                                   onError={(e) => {
                                     e.target.onerror = null;
-                                    e.target.src = "/images/products/01.png";
+                                    e.target.src = item.isPrint ? "/images/rocket.png" : "/images/products/01.png";
                                   }}
                                 />
                               </div>
@@ -701,12 +708,12 @@ function Orders() {
                     type="button"
                     className="orders-quick-item-btn"
                     onClick={() => {
-                      const invoicable = orders.find((o) => !o.is3DPrint);
+                      const invoicable = orders.find((o) => !o.is3DPrint) || orders[0];
                       if (!invoicable) {
-                        toast.info("No product orders with invoices yet.");
+                        toast.info("No orders with invoices yet.");
                         return;
                       }
-                      handleDownloadInvoice(invoicable.id);
+                      handleDownloadInvoice(invoicable);
                     }}
                   >
                     <span className="orders-quick-icon">
@@ -871,7 +878,7 @@ function Orders() {
                         className="orders-modal-item-img"
                         onError={(e) => {
                           e.target.onerror = null;
-                          e.target.src = "/images/products/01.png";
+                          e.target.src = item.isPrint ? "/images/rocket.png" : "/images/products/01.png";
                         }}
                       />
                       <div className="orders-modal-item-info">
@@ -930,16 +937,14 @@ function Orders() {
             </div>
 
             <div className="orders-modal-footer">
-              {!selectedOrderDetails.is3DPrint && (
-                <button
-                  type="button"
-                  className="order-btn-outline"
-                  onClick={() => handleDownloadInvoice(selectedOrderDetails.id)}
-                >
-                  <Download size={14} style={{ marginRight: 6 }} />
-                  Invoice
-                </button>
-              )}
+              <button
+                type="button"
+                className="order-btn-outline"
+                onClick={() => handleDownloadInvoice(selectedOrderDetails)}
+              >
+                <Download size={14} style={{ marginRight: 6 }} />
+                Invoice
+              </button>
               <button
                 type="button"
                 className="order-btn-primary"

@@ -3,6 +3,7 @@ const { calculateCouponTotals, round2 } = require("../utils/couponHelper");
 const { ensurePrintCartSchema } = require("../utils/printCartSchema");
 const { calculatePrintPrice } = require("../utils/priceCalculator");
 const { triggerAutoShipment } = require("../utils/shippingSync");
+const { mailOrderInvoiceById, mailPrintInvoiceByIds } = require("../utils/mailer");
 const crypto = require("crypto");
 
 /* ===================== FORMAT HELPER ===================== */
@@ -127,14 +128,27 @@ const getUserOrders = async (req, res) => {
     );
 
     // Populate items & thumbnails for each order
-    for (const ord of orders) {
-      const [items] = await db.query(
-        `SELECT oi.id, oi.product_name, oi.category_name, oi.variant_value, oi.price, oi.quantity, oi.total,
+    // (item_type tells the storefront to use the 3D-print artwork for prints)
+    let orderItemsHaveType = true;
+    try {
+      const [colCheck] = await db.query(
+        `SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'order_items' AND COLUMN_NAME = 'item_type' LIMIT 1`
+      );
+      orderItemsHaveType = colCheck.length > 0;
+    } catch {
+      orderItemsHaveType = false;
+    }
+    const itemsSql = orderItemsHaveType
+      ? `SELECT oi.id, oi.item_type, oi.product_name, oi.category_name, oi.variant_value, oi.price, oi.quantity, oi.total,
                 COALESCE(oi.product_image, (SELECT image_url FROM product_images WHERE product_id = oi.product_id AND is_primary = 1 LIMIT 1), '') as image_url
          FROM order_items oi
-         WHERE oi.order_id = ?`,
-        [ord.id]
-      );
+         WHERE oi.order_id = ?`
+      : `SELECT oi.id, oi.product_name, oi.category_name, oi.variant_value, oi.price, oi.quantity, oi.total,
+                COALESCE(oi.product_image, (SELECT image_url FROM product_images WHERE product_id = oi.product_id AND is_primary = 1 LIMIT 1), '') as image_url
+         FROM order_items oi
+         WHERE oi.order_id = ?`;
+    for (const ord of orders) {
+      const [items] = await db.query(itemsSql, [ord.id]);
 
       ord.items = items;
       ord.items_count = items.reduce((sum, it) => sum + it.quantity, 0);
@@ -456,18 +470,31 @@ const getOrderInvoice = async (req, res) => {
     const order = orders[0];
 
     const [items] = await db.query("SELECT * FROM order_items WHERE order_id = ?", [order.id]);
-    order.items = items;
+
+    const { getInvoiceSettings, buildOrderInvoiceData, generateInvoicePdf, invoiceFileName } =
+      require("../utils/invoice");
+    const settings = await getInvoiceSettings();
+    const data = buildOrderInvoiceData({ order, items, settings });
+
+    // ?format=pdf → download the GST invoice PDF (used by client + email link).
+    if (String(req.query.format || "").toLowerCase() === "pdf") {
+      const pdf = await generateInvoicePdf(data);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${invoiceFileName(data)}"`);
+      res.setHeader("Content-Length", pdf.length);
+      return res.send(pdf);
+    }
 
     const invoice = {
-      invoice_number: `INV-${order.order_number}`,
-      invoice_date: formatDate(order.created_at),
+      invoice_number: data.invoiceNumber,
+      invoice_date: data.invoiceDate,
       order_number: order.order_number,
       company: {
-        name: "ElectroLab Technologies Pvt. Ltd.",
-        address: "123, Maker Street, Koramangala, Bengaluru, Karnataka 560034",
-        gstin: "29AAAAA0000A1Z5",
-        email: "support@electrolab.in",
-        phone: "+91 98765 43210",
+        name: settings.company.name,
+        address: settings.company.address,
+        gstin: settings.company.gstin,
+        email: settings.company.email,
+        phone: settings.company.phone,
       },
       customer: {
         name: order.shipping_name,
@@ -482,13 +509,15 @@ const getOrderInvoice = async (req, res) => {
         unit_price: parseFloat(it.price),
         total: parseFloat(it.total),
       })),
+      lines: data.lines,
       financials: {
-        subtotal: parseFloat(order.subtotal),
+        subtotal: data.subtotal,
         shipping_cost: parseFloat(order.shipping_cost),
-        discount: parseFloat(order.discount),
-        gst_rate: "18%",
-        tax_amount: parseFloat(order.tax_amount),
-        grand_total: parseFloat(order.total_amount),
+        discount: data.discount,
+        gst_rate: `${data.gstRate}%`,
+        tax_amount: data.taxTotal,
+        grand_total: data.grandTotal,
+        amount_in_words: data.amountWords,
       },
       payment: {
         method: order.payment_method_label || order.payment_method.toUpperCase(),
@@ -818,6 +847,11 @@ const createOrder = async (req, res) => {
       // shipments (fire-and-forget; never blocks the response).
       if (payment_method === "cod") {
         created.forEach((r) => triggerAutoShipment("print", r.id));
+        // GST invoice email for the 3D-print purchase.
+        mailPrintInvoiceByIds(
+          created.map((r) => r.id),
+          { shippingCost, deliveryOption: delivery_option, template: "cod" }
+        ).catch(() => {});
       }
       return res.status(201).json({
         success: true,
@@ -1045,6 +1079,8 @@ const createOrder = async (req, res) => {
     // shipment (fire-and-forget; prepaid orders hook in verify-payment).
     if (payment_method === "cod") {
       triggerAutoShipment("order", orderId);
+      // GST invoice email for the purchase (products and/or 3D prints).
+      mailOrderInvoiceById(orderId, { template: "cod" }).catch(() => {});
     }
 
     return res.status(201).json({

@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const { uploadFile } = require("../utils/cloudinaryUploader");
 const { calculatePrintPrice } = require("../utils/priceCalculator");
 const { triggerAutoShipment } = require("../utils/shippingSync");
+const { mailPrintInvoiceByIds } = require("../utils/mailer");
 
 /* ===================== HELPERS ===================== */
 const formatDateTime = (dt) => {
@@ -266,6 +267,8 @@ const createPrintOrder = async (req, res) => {
     // shipment (fire-and-forget; prepaid hooks in verify-payment).
     if (payment_method === "cod") {
       triggerAutoShipment("print", result.insertId);
+      // GST invoice email for the 3D-print purchase.
+      mailPrintInvoiceByIds([result.insertId], { template: "cod" }).catch(() => {});
     }
 
     return res.status(201).json({
@@ -375,6 +378,78 @@ const getPrintOrderById = async (req, res) => {
   }
 };
 
+/* ===================== GET PRINT ORDER INVOICE (JSON / PDF) ===================== */
+const getPrintOrderInvoice = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const isNumeric = /^\d+$/.test(String(id).trim());
+    const queryField = isNumeric ? "po.id = ?" : "po.order_number = ?";
+
+    const [rows] = await db.query(
+      `SELECT po.*, pm.name as material_name, pc.name as color_name,
+              u.first_name, u.last_name, u.email as customer_email
+       FROM printing_orders po
+       LEFT JOIN printing_materials pm ON po.material_id = pm.id
+       LEFT JOIN printing_colors pc ON po.color_id = pc.id
+       JOIN users u ON po.user_id = u.id
+       WHERE ${queryField} AND po.user_id = ?`,
+      [String(id).trim(), req.user.id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Print order not found" });
+    }
+
+    const {
+      getInvoiceSettings,
+      buildPrintInvoiceData,
+      generateInvoicePdf,
+      invoiceFileName,
+    } = require("../utils/invoice");
+    const settings = await getInvoiceSettings();
+    const data = buildPrintInvoiceData({ prints: rows, settings });
+
+    // ?format=pdf → download the GST invoice PDF.
+    if (String(req.query.format || "").toLowerCase() === "pdf") {
+      const pdf = await generateInvoicePdf(data);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${invoiceFileName(data)}"`);
+      res.setHeader("Content-Length", pdf.length);
+      return res.send(pdf);
+    }
+
+    return res.status(200).json({
+      success: true,
+      invoice: {
+        invoice_number: data.invoiceNumber,
+        invoice_date: data.invoiceDate,
+        order_number: rows[0].order_number,
+        company: {
+          name: settings.company.name,
+          address: settings.company.address,
+          gstin: settings.company.gstin,
+          email: settings.company.email,
+          phone: settings.company.phone,
+        },
+        customer: data.customer,
+        lines: data.lines,
+        financials: {
+          subtotal: data.subtotal,
+          discount: data.discount,
+          gst_rate: `${data.gstRate}%`,
+          tax_amount: data.taxTotal,
+          grand_total: data.grandTotal,
+          amount_in_words: data.amountWords,
+        },
+        payment: data.payment,
+      },
+    });
+  } catch (error) {
+    console.error("Get print invoice error:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 module.exports = {
   uploadPrintFile,
   getPrintingConfig,
@@ -384,4 +459,5 @@ module.exports = {
   createPrintOrder,
   getUserPrintOrders,
   getPrintOrderById,
+  getPrintOrderInvoice,
 };

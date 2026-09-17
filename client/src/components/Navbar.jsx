@@ -518,10 +518,11 @@ useEffect(() => {
                 type="button"
                 className={`nav-icon-btn ${
                   accountOpen ? "account-button-active" : ""
-                }`}
+                } ${isLoggedIn ? "account-button-menu" : ""}`}
                 onClick={handleAccount}
                 aria-label={isLoggedIn ? "My Account" : "Login"}
                 aria-expanded={isLoggedIn ? accountOpen : undefined}
+                aria-haspopup={isLoggedIn ? "menu" : undefined}
               >
                 {showAvatar ? (
                   <img
@@ -532,6 +533,14 @@ useEffect(() => {
                   />
                 ) : (
                   <i className="bi bi-person"></i>
+                )}
+                {isLoggedIn && (
+                  <i
+                    className={`bi bi-chevron-down account-caret ${
+                      accountOpen ? "account-caret-open" : ""
+                    }`}
+                    aria-hidden="true"
+                  ></i>
                 )}
               </button>
 
@@ -679,9 +688,11 @@ useEffect(() => {
                     </NavLink>
                   )}
 
+                  <div className="account-dropdown-divider" />
+
                   <button
                     type="button"
-                    className="account-dropdown-item"
+                    className="account-dropdown-item account-dropdown-item--logout"
                     onClick={() => {
                       closeNavbar();
                       authServices.logout();
@@ -1008,7 +1019,7 @@ useEffect(() => {
 
                   <button
                     type="button"
-                    className="mobile-account-button"
+                    className="mobile-account-button mobile-account-button--logout"
                     onClick={() => {
                       closeNavbar();
                       authServices.logout();
