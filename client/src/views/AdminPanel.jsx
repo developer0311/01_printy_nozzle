@@ -54,6 +54,7 @@ import {
   Star,
   Mail,
   MessageSquare,
+  Megaphone,
   Settings2,
   ShoppingCart,
   Sparkles,
@@ -247,6 +248,7 @@ function AdminPanel() {
     valid_from: "",
     valid_until: "",
     is_active: true,
+    show_in_announcement: false,
   });
   const [categoryForm, setCategoryForm] = useState({ name: "", description: "", is_active: true });
   const [materialForm, setMaterialForm] = useState({
@@ -299,6 +301,10 @@ function AdminPanel() {
   const [settingsForm, setSettingsForm] = useState({});
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [shipStatus, setShipStatus] = useState(null);
+  const [whLoading, setWhLoading] = useState(false);
+  const [whInfo, setWhInfo] = useState(null);
+  const [whVerifyName, setWhVerifyName] = useState("");
+  const [whVerifying, setWhVerifying] = useState(false);
 
   const loadShipStatus = async () => {
     try {
@@ -306,6 +312,54 @@ function AdminPanel() {
       setShipStatus(res.data?.data || null);
     } catch {
       setShipStatus(null);
+    }
+  };
+
+  const fetchWarehouses = async () => {
+    setWhLoading(true);
+    try {
+      const res = await adminService.getWarehouses();
+      setWhInfo(res.data?.data || null);
+      const h = res.data?.data?.token_health;
+      if (h) {
+        toast.info(
+          `Token check — staging: ${h.staging?.ok ? "OK" : "FAIL"} • production: ${h.production?.ok ? "OK" : "FAIL"}`
+        );
+      }
+      if (!res.data?.data?.supported) {
+        toast.warn("Delhivery has no list-all-warehouses API — copy the name from the portal, then Verify & Save below.");
+      }
+    } catch (e) {
+      toast.error(e.response?.data?.message || "Warehouse fetch failed");
+    } finally {
+      setWhLoading(false);
+    }
+  };
+
+  const verifyAndSaveWarehouse = async () => {
+    const candidate = (whVerifyName || settingsForm?.delhivery_pickup_name || "").trim();
+    if (!candidate) {
+      toast.error("Enter the exact warehouse name from your Delhivery portal first");
+      return;
+    }
+    setWhVerifying(true);
+    try {
+      const res = await adminService.verifyWarehouse({
+        name: candidate,
+        save: true,
+        pincode: settingsForm?.delhivery_pickup_pincode || undefined,
+        phone: settingsForm?.delhivery_pickup_phone || undefined,
+        city: settingsForm?.delhivery_pickup_city || undefined,
+        state: settingsForm?.delhivery_pickup_state || undefined,
+        address: settingsForm?.delhivery_pickup_address || undefined,
+      });
+      toast.success(res.data?.message || "Warehouse verified & saved");
+      setSettingsForm((p) => ({ ...p, delhivery_pickup_name: candidate }));
+      loadShipStatus();
+    } catch (e) {
+      toast.error(e.response?.data?.message || "Warehouse not found in Delhivery");
+    } finally {
+      setWhVerifying(false);
     }
   };
 
@@ -910,6 +964,7 @@ function AdminPanel() {
       valid_from: "",
       valid_until: "",
       is_active: true,
+      show_in_announcement: false,
     });
   };
 
@@ -940,6 +995,7 @@ function AdminPanel() {
       valid_from: couponForm.valid_from || null,
       valid_until: couponForm.valid_until || null,
       is_active: couponForm.is_active,
+      show_in_announcement: couponForm.show_in_announcement,
     };
     try {
       if (editing?.id) {
@@ -968,6 +1024,7 @@ function AdminPanel() {
       valid_from: coupon.valid_from ? String(coupon.valid_from).slice(0, 10) : "",
       valid_until: coupon.valid_until ? String(coupon.valid_until).slice(0, 10) : "",
       is_active: coupon.is_active !== undefined ? Boolean(coupon.is_active) : true,
+      show_in_announcement: Boolean(coupon.show_in_announcement),
     });
     setEditing({ type: "coupon", id: coupon.id });
     setActiveModal("coupon");
@@ -980,6 +1037,23 @@ function AdminPanel() {
       loadAdminData();
     } catch (error) {
       toast.error(error?.response?.data?.message || "Coupon delete failed");
+    }
+  };
+
+  // Announcement bar: only one coupon shows at a time (enforced server-side).
+  const toggleCouponAnnouncement = async (coupon) => {
+    try {
+      await adminService.updateCoupon(coupon.id, {
+        show_in_announcement: !coupon.show_in_announcement,
+      });
+      toast.success(
+        coupon.show_in_announcement
+          ? `"${coupon.code}" removed from the announcement bar`
+          : `"${coupon.code}" will now show in the announcement bar`
+      );
+      loadAdminData();
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Announcement update failed");
     }
   };
 
@@ -2020,6 +2094,7 @@ function AdminPanel() {
         valid_from: toDateInput(coupon.valid_from),
         valid_until: toDateInput(coupon.valid_until),
         is_active: Boolean(coupon.is_active),
+        show_in_announcement: false,
       };
       await adminService.createCoupon(payload);
       toast.success("Coupon duplicated");
@@ -4069,6 +4144,14 @@ function AdminPanel() {
                             <span className="admin-print-actions">
                               <button
                                 type="button"
+                                className={`admin-icon-btn announce ${coupon.show_in_announcement ? "on" : ""}`}
+                                onClick={() => toggleCouponAnnouncement(coupon)}
+                                title={coupon.show_in_announcement ? "Showing in announcement bar — click to remove" : "Show in announcement bar (only one at a time)"}
+                              >
+                                <Megaphone size={16} />
+                              </button>
+                              <button
+                                type="button"
                                 className="admin-icon-btn edit"
                                 onClick={() => openEditCoupon(coupon)}
                                 title="Edit coupon"
@@ -4985,7 +5068,6 @@ function AdminPanel() {
                       <input placeholder="Smooth finish cost / gram (Rs.)" value={settingsForm?.smooth_finish_per_gram || ""} onChange={(e) => updateSettingField("smooth_finish_per_gram", e.target.value)} />
                       <input placeholder="Standard shipping cost (Rs.)" value={settingsForm?.standard_shipping_cost || ""} onChange={(e) => updateSettingField("standard_shipping_cost", e.target.value)} />
                       <input placeholder="Express shipping cost (Rs.)" value={settingsForm?.express_shipping_cost || ""} onChange={(e) => updateSettingField("express_shipping_cost", e.target.value)} />
-                      <input placeholder="Same-day shipping cost (Rs.)" value={settingsForm?.same_day_shipping_cost || ""} onChange={(e) => updateSettingField("same_day_shipping_cost", e.target.value)} />
                       <input placeholder="3D print delivery window" value={settingsForm?.printing_delivery_days || ""} onChange={(e) => updateSettingField("printing_delivery_days", e.target.value)} />
                       <input placeholder="3D print delivery region" value={settingsForm?.printing_delivery_region || ""} onChange={(e) => updateSettingField("printing_delivery_region", e.target.value)} />
                     </div>
@@ -5059,6 +5141,46 @@ function AdminPanel() {
                       <span>{settingsSaving ? "Saving..." : "Save Settings"}</span>
                     </button>
                   </form>
+                  <div style={{ marginTop: 16, borderTop: "1px dashed #e5e7eb", paddingTop: 12 }}>
+                    <p className="admin-panel-subtitle" style={{ fontWeight: 600 }}>
+                      Pickup from Delhivery portal
+                    </p>
+                    <p className="admin-panel-subtitle">
+                      Delhivery has no list-all-warehouses API for token auth. Copy the EXACT name from Delhivery One →
+                      B2C: Settings → Pickup Locations (PTL: My Facilities → Manage Warehouses), paste it into
+                      “Pickup warehouse name” above, then Verify &amp; Save here.
+                    </p>
+                    {shipStatus?.token_health && (
+                      <p className="admin-panel-subtitle">
+                        Token check — staging: {shipStatus.token_health.staging?.ok ? "OK" : "FAIL"}
+                        {" • "}production: {shipStatus.token_health.production?.ok ? "OK" : "FAIL"}
+                        {shipStatus.hint ? ` — ${shipStatus.hint}` : ""}
+                      </p>
+                    )}
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                      <button type="button" className="admin-icon-btn view" onClick={fetchWarehouses} disabled={whLoading} title="Check token + probe warehouses">
+                        <RefreshCw size={16} />
+                        <span style={{ marginLeft: 6 }}>{whLoading ? "Checking…" : "Check Delhivery connection"}</span>
+                      </button>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                      <input
+                        placeholder="Exact warehouse name from Delhivery portal"
+                        value={whVerifyName || settingsForm?.delhivery_pickup_name || ""}
+                        onChange={(e) => setWhVerifyName(e.target.value)}
+                        style={{ flex: "1 1 240px" }}
+                      />
+                      <button type="button" className="admin-primary" onClick={verifyAndSaveWarehouse} disabled={whVerifying}>
+                        <ShieldCheck size={16} />
+                        <span>{whVerifying ? "Verifying…" : "Verify & Save"}</span>
+                      </button>
+                    </div>
+                    {whInfo?.help && (
+                      <p className="admin-panel-subtitle" style={{ marginTop: 8 }}>
+                        {whInfo.help.where} — {whInfo.help.next}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="admin-panel admin-section-panel">
@@ -5132,7 +5254,7 @@ function AdminPanel() {
         onClose={closeModal}
       >
         <form className="pf-form" onSubmit={submitProduct}>
-          <section className="pf-section">
+          <div className="pf-section">
             <div className="pf-section-head">
               <span className="pf-section-ico"><Boxes size={18} /></span>
               <div>
@@ -5205,9 +5327,9 @@ function AdminPanel() {
                 </span>
               </label>
             </div>
-          </section>
+          </div>
 
-          <section className="pf-section">
+          <div className="pf-section">
             <div className="pf-section-head">
               <span className="pf-section-ico"><FileText size={18} /></span>
               <div>
@@ -5227,9 +5349,9 @@ function AdminPanel() {
                 <em className="pf-count">{productForm.keyFeaturesText.length}/5000</em>
               </label>
             </div>
-          </section>
+          </div>
 
-          <section className="pf-section">
+          <div className="pf-section">
             <div className="pf-section-head">
               <span className="pf-section-ico"><Settings2 size={18} /></span>
               <div>
@@ -5248,10 +5370,10 @@ function AdminPanel() {
                 <em className="pf-count">{productForm.applicationsText.length}/5000</em>
               </label>
             </div>
-          </section>
+          </div>
 
           <div className="pf-grid cols-2 pf-split">
-            <section className="pf-section">
+            <div className="pf-section">
               <div className="pf-section-head">
                 <span className="pf-section-ico"><Cpu size={18} /></span>
                 <div>
@@ -5293,10 +5415,10 @@ function AdminPanel() {
                 <textarea rows={3} maxLength={500} placeholder="Explains the diagram shown on the Pinout tab" value={productForm.pinout_description} onChange={(e) => setProductForm({ ...productForm, pinout_description: e.target.value })} />
                 <em className="pf-count">{productForm.pinout_description.length}/500</em>
               </label>
-            </section>
+            </div>
 
             <div className="pf-stack">
-              <section className="pf-section">
+              <div className="pf-section">
                 <div className="pf-section-head">
                   <span className="pf-section-ico"><Link2 size={18} /></span>
                   <div>
@@ -5308,8 +5430,8 @@ function AdminPanel() {
                   <textarea rows={4} maxLength={1000} placeholder="Name | Type | URL  (types: pdf, github, link, image, file)" value={productForm.resourcesText} onChange={(e) => setProductForm({ ...productForm, resourcesText: e.target.value })} />
                   <em className="pf-count">{productForm.resourcesText.length}/1000</em>
                 </label>
-              </section>
-              <section className="pf-section">
+              </div>
+              <div className="pf-section">
                 <div className="pf-section-head">
                   <span className="pf-section-ico"><MessageSquare size={18} /></span>
                   <div>
@@ -5321,12 +5443,12 @@ function AdminPanel() {
                   <textarea rows={4} maxLength={1000} placeholder="Question | Answer" value={productForm.faqsText} onChange={(e) => setProductForm({ ...productForm, faqsText: e.target.value })} />
                   <em className="pf-count">{productForm.faqsText.length}/1000</em>
                 </label>
-              </section>
+              </div>
             </div>
           </div>
 
           <div className="pf-gallery-row">
-            <section className="pf-section pf-gallery">
+            <div className="pf-section pf-gallery">
               <div className="pf-section-head">
                 <span className="pf-section-ico"><ImageIcon size={18} /></span>
                 <div>
@@ -5385,9 +5507,9 @@ function AdminPanel() {
                 )}
               </div>
               <p className="pf-hint">Star an image to make it the primary storefront photo. New images upload on save.</p>
-            </section>
+            </div>
 
-            <section className="pf-section pf-options">
+            <div className="pf-section pf-options p-2">
               <div className="pf-section-head">
                 <span className="pf-section-ico"><Sparkles size={18} /></span>
                 <div>
@@ -5408,7 +5530,7 @@ function AdminPanel() {
                   <em>Make this product visible to customers</em>
                 </span>
               </label>
-            </section>
+            </div>
           </div>
 
           <div className="pf-footer">
@@ -5515,6 +5637,11 @@ function AdminPanel() {
             <input type="checkbox" checked={couponForm.is_active} onChange={(e) => setCouponForm({ ...couponForm, is_active: e.target.checked })} />
             Active coupon
           </label>
+          <label className="admin-check">
+            <input type="checkbox" checked={couponForm.show_in_announcement} onChange={(e) => setCouponForm({ ...couponForm, show_in_announcement: e.target.checked })} />
+            Show in announcement bar
+          </label>
+          <small className="admin-hint">Only one coupon shows in the top bar at a time — saving this will replace the current one. Only active, valid coupons are displayed.</small>
           <button className="admin-primary" type="submit">
             <Save size={16} />
             <span>{editing?.id ? "Update Coupon" : "Create Coupon"}</span>
@@ -5667,7 +5794,7 @@ function AdminModal({ open, title, subtitle, children, onClose, wide = false, ic
 
   return (
     <div className="admin-modal-backdrop" role="presentation" onMouseDown={onClose}>
-      <section
+      <div
         className={`admin-modal${wide ? " wide" : ""}`}
         role="dialog"
         aria-modal="true"
@@ -5691,7 +5818,7 @@ function AdminModal({ open, title, subtitle, children, onClose, wide = false, ic
           </button>
         </header>
         {children}
-      </section>
+      </div>
     </div>
   );
 }

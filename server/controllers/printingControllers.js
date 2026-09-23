@@ -53,7 +53,7 @@ const uploadPrintFile = async (req, res) => {
     // Upload to Cloudinary as raw file
     const result = await uploadFile({
       filePath: req.file.path,
-      folder: "electrolab/prints",
+      folder: "printynozzle/prints",
       resourceType: "raw",
       publicId: `print_${Date.now()}_${Math.round(Math.random() * 1e4)}`,
     });

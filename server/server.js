@@ -5,7 +5,7 @@ const PORT = process.env.PORT || process.env.SERVER_PORT || 3000;
 
 if (!process.env.VERCEL) {
   app.listen(PORT, () => {
-    console.log(`🚀 ElectroLab Server is running on port ${PORT}`);
+    console.log(`🚀 Printynozzle Server is running on port ${PORT}`);
   });
 
   // Periodic Delhivery tracking sync (poll fallback beside the webhook).

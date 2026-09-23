@@ -20,7 +20,7 @@ const ensureAdminUser = async () => {
     if (existing.length === 0) {
       await db.query(
         "INSERT INTO users (first_name, last_name, email, phone, password_hash, role, is_active, is_verified) VALUES (?, ?, ?, ?, ?, 'admin', 1, 1)",
-        ["Admin", "ElectroLab", adminEmail, "9876543210", hashedPassword]
+        ["Admin", "Printynozzle", adminEmail, "9836609063", hashedPassword]
       );
       console.log(`👑 Admin user initialized from .env: ${adminEmail}`);
     } else {
@@ -153,14 +153,14 @@ const login = async (req, res) => {
       const hashedPassword = await bcrypt.hash(envAdminPassword, saltRounds);
       const [insertRes] = await db.query(
         "INSERT INTO users (first_name, last_name, email, phone, password_hash, role, is_active, is_verified) VALUES (?, ?, ?, ?, ?, 'admin', 1, 1)",
-        ["Admin", "ElectroLab", envAdminEmail, "9876543210", hashedPassword]
+        ["Admin", "Printynozzle", envAdminEmail, "9836609063", hashedPassword]
       );
       rows = [{
         id: insertRes.insertId,
         first_name: "Admin",
-        last_name: "ElectroLab",
+        last_name: "Printynozzle",
         email: envAdminEmail,
-        phone: "9876543210",
+        phone: "9836609063",
         password_hash: hashedPassword,
         role: "admin",
         is_active: 1,

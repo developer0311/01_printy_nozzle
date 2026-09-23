@@ -93,6 +93,8 @@ const adminService = {
   getSettings: () => api.get("/admin/settings"),
   updateSettings: (payload) => api.put("/admin/settings", payload),
   getShippingStatus: () => api.get("/admin/shipping/status"),
+  getWarehouses: () => api.get("/admin/shipping/warehouses"),
+  verifyWarehouse: (payload) => api.post("/admin/shipping/warehouses/verify", payload),
   createShipment: (payload) => api.post("/admin/shipping/shipment", payload),
   downloadShippingLabel: (awb, pdf = true) =>
     api.get("/admin/shipping/label", {

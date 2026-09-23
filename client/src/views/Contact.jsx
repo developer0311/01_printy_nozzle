@@ -90,9 +90,9 @@ export default function Contact() {
     };
   }, []);
 
-  const infoPhone = contactInfo?.phone || "+91 98765 43210";
-  const infoEmail = contactInfo?.email || "support@electrolab.in";
-  const infoWhatsapp = contactInfo?.whatsapp || "+91 98765 43210";
+  const infoPhone = contactInfo?.phone || "9836609063";
+  const infoEmail = contactInfo?.email || "info.printynozzle@gmail.com";
+  const infoWhatsapp = contactInfo?.whatsapp || "+919836609063";
   const infoHours = contactInfo?.businessHours || "Mon - Sat: 10:00 AM - 7:00 PM";
   const infoCompany = contactInfo?.companyName || "PrintyNozzle";
 

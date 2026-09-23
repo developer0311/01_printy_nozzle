@@ -87,8 +87,12 @@ const getServiceability = async (req, res) => {
 };
 
 /* ===================== GET /charges (PUBLIC) =====================
- * Query: d_pin (required), weight_g (optional), cod_amount (optional)
- * Origin pincode comes from the configured pickup warehouse.
+ * Live Delhivery rate quote used by checkout while ordering.
+ * Query: d_pin (required, delivery pincode), mode (optional:
+ *   "standard" → Surface / "express" → Express-Air, default "standard"),
+ *   weight_g (optional, defaults to Settings → fallback weight),
+ *   cod_amount (optional, default 0 — checkout is prepaid-only).
+ * Origin pincode always comes from the configured pickup warehouse.
  */
 const getCharges = async (req, res) => {
   try {
@@ -107,6 +111,10 @@ const getCharges = async (req, res) => {
       });
     }
     const d_pin = String(req.query.d_pin || "").trim();
+    if (!/^\d{6}$/.test(d_pin)) {
+      return res.status(400).json({ success: false, message: "d_pin must be a 6-digit delivery pincode" });
+    }
+    const mode = String(req.query.mode || "standard").toLowerCase() === "express" ? "express" : "standard";
     const weight_g = parseInt(req.query.weight_g, 10) || settings.defaultWeightG;
     const cod_amount = Number(req.query.cod_amount || 0);
     const quote = await delhivery.getCharges({
@@ -114,15 +122,23 @@ const getCharges = async (req, res) => {
       o_pin: settings.pickup.pincode,
       weight_g,
       cod_amount,
+      // Delhivery md codes: S = Surface (standard), E = Express (air)
+      mode: mode === "express" ? "E" : "S",
+      env: settings.env,
     });
+    if (quote.amount == null) {
+      return res.status(502).json({ success: false, message: "Delhivery returned no rate for this route yet" });
+    }
     return res.status(200).json({
       success: true,
       d_pin,
       o_pin: settings.pickup.pincode,
       weight_g,
+      mode,
       cod_amount,
       amount: quote.amount,
       currency: quote.currency,
+      zone: quote.raw?.zone || quote.raw?.[0]?.zone || null,
       source: "delhivery",
     });
   } catch (error) {

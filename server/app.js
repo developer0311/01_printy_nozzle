@@ -26,6 +26,13 @@ try {
   console.warn("⚠️ invoiceSchema preload skipped:", e.message);
 }
 
+// Self-healing DB migration for the coupon announcement-bar column (idempotent)
+try {
+  require("./utils/couponSchema");
+} catch (e) {
+  console.warn("⚠️ couponSchema preload skipped:", e.message);
+}
+
 // Client Routers
 const authRoutes = require("./routers/authRoutes");
 const profileRoutes = require("./routers/profileRoutes");
@@ -42,6 +49,7 @@ const newsletterRoutes = require("./routers/newsletterRoutes");
 const contactRoutes = require("./routers/contactRoutes");
 const shippingRoutes = require("./routers/shippingRoutes");
 const webhookRoutes = require("./routers/webhookRoutes");
+const couponRoutes = require("./routers/couponRoutes");
 
 // Admin Routers
 const adminDashboardRoutes = require("./routers/admin/adminDashboardRoutes");
@@ -113,6 +121,7 @@ app.use("/api/newsletter", newsletterRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/shipping", shippingRoutes);
 app.use("/api/webhooks", webhookRoutes);
+app.use("/api/coupons", couponRoutes);
 
 /* ================= ADMIN API ROUTES ================= */
 app.use("/api/admin/dashboard", adminDashboardRoutes);
