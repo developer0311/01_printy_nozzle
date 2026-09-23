@@ -8,6 +8,7 @@ import { Routes, Route, useLocation } from "react-router-dom";
 import ProtectedRoute from "./components/protected_routes/ProtectedRoute";
 
 import Navbar from "./components/Navbar";
+import CouponPopup from "./components/CouponPopup";
 import Footer from "./components/Footer";
 import ScrollToTop from "./components/ScrollToTop";
 import Login from "./views/Login";
@@ -36,6 +37,7 @@ function App() {
       <div className="app-root">
         <div className="app-main d-flex flex-column min-vh-100">
           {!hidePublicShell && <Navbar />}
+          {!hidePublicShell && <CouponPopup />}
           <main className="flex-grow-1">
             <Routes>
               <Route path="/" element={<Home />} />

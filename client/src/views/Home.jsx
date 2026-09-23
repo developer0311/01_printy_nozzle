@@ -433,7 +433,7 @@ export default function Home() {
             <img
               key={slide.id || slide.image}
               src={slide.image}
-              alt={slide.title || "ElectroLab electronics and 3D printing"}
+              alt={slide.title || "Printynozzle electronics and 3D printing"}
               className={`home-hero-image ${
                 activeSlide === index ? "is-active" : ""
               }`}

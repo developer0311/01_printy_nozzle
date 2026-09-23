@@ -235,6 +235,7 @@ CREATE TABLE IF NOT EXISTS coupons (
   usage_limit INT DEFAULT NULL,
   used_count INT DEFAULT 0,
   is_active TINYINT(1) DEFAULT 1,
+  show_in_announcement TINYINT(1) DEFAULT 0,
   valid_from DATETIME DEFAULT NULL,
   valid_until DATETIME DEFAULT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -270,7 +271,7 @@ CREATE TABLE IF NOT EXISTS orders (
   billing_country VARCHAR(100) DEFAULT 'India',
 
   -- Delivery & Carrier
-  delivery_option ENUM('standard', 'express', 'same_day') DEFAULT 'standard',
+  delivery_option ENUM('standard', 'express') DEFAULT 'standard',
   shipping_cost DECIMAL(10,2) DEFAULT 0.00,
   tracking_number VARCHAR(100) DEFAULT NULL,
   shipping_carrier VARCHAR(100) DEFAULT 'BlueDart Express',
@@ -529,13 +530,12 @@ INSERT INTO site_settings (setting_key, setting_value, setting_type, description
 ('gst_rate', '18', 'number', 'GST percentage rate'),
 ('standard_shipping_cost', '0', 'number', 'Standard delivery cost (free above threshold)'),
 ('express_shipping_cost', '99', 'number', 'Express delivery cost'),
-('same_day_shipping_cost', '149', 'number', 'Same day delivery cost'),
-('site_name', 'ElectroLab', 'string', 'Website name'),
+('site_name', 'Printynozzle', 'string', 'Website name'),
 ('site_tagline', 'Electronics & 3D Printing', 'string', 'Website tagline'),
-('support_email', 'support@electrolab.in', 'string', 'Support email address'),
-('support_phone', '+91 98765 43210', 'string', 'Support phone number'),
-('whatsapp_number', '+919876543210', 'string', 'WhatsApp Support Number'),
-('company_address', '123, Maker Street, Koramangala, Bengaluru, Karnataka 560034, India', 'string', 'Office Address'),
+('support_email', 'info.printynozzle@gmail.com', 'string', 'Support email address'),
+('support_phone', '9836609063', 'string', 'Support phone number'),
+('whatsapp_number', '+919836609063', 'string', 'WhatsApp Support Number'),
+('company_address', '145 Indira Nagar Block 3, Panihati, Sodepur, Opposite Shree Krishna Sweets, North 24 Parganas, 700110, West Bengal, India', 'string', 'Office Address'),
 ('business_hours', 'Mon - Sat: 10:00 AM - 7:00 PM | Sunday: Closed', 'string', 'Working Hours'),
 ('smooth_finish_per_gram', '3', 'number', 'Extra cost per gram for smooth finish'),
 ('printing_delivery_days', '3 - 5 Working Days', 'string', 'Estimated delivery window shown on the 3D printing page'),
@@ -598,7 +598,7 @@ INSERT INTO faqs (category, question, answer, sort_order) VALUES
 ('contact', 'How does the 3D printing service work?', 'Simply upload your 3D model file (STL, OBJ, or 3MF), choose your preferred material (PLA, PETG, ABS, TPU), select infill density and surface finish. Our automated calculator gives you an instant quote to place your order!', 2),
 ('contact', 'What payment methods do you accept?', 'We accept UPI (Google Pay, PhonePe, Paytm), Credit & Debit Cards (Visa, MasterCard, RuPay), Net Banking, and Cash on Delivery (COD) on eligible pin codes.', 3),
 ('contact', 'What file formats are accepted for 3D printing?', 'We accept standard .STL, .OBJ, and .3MF files up to 100MB in size.', 4),
-('contact', 'Do you offer bulk discounts?', 'Yes! For large volume component orders or bulk 3D printing batches, please contact our support team via the form above or email us at support@electrolab.in.', 5),
+('contact', 'Do you offer bulk discounts?', 'Yes! For large volume component orders or bulk 3D printing batches, please contact our support team via the form above or email us at info.printynozzle@gmail.com.', 5),
 ('contact', 'What is your return policy?', 'We provide a 7-day hassle-free replacement or return warranty on all electronic components in case of manufacturing defects.', 6);
 
 -- Sample Serviceable Pincodes
@@ -612,9 +612,9 @@ INSERT INTO serviceable_pincodes (pincode, city, state, estimated_days, cod_avai
 ('500001', 'Hyderabad', 'Telangana', '3 - 4 working days', 1, 1)
 ON DUPLICATE KEY UPDATE city = VALUES(city);
 
--- Admin User (admin@electrolab.in / Admin@123)
+-- Admin User (info.printynozzle@gmail.com / Admin@123)
 INSERT INTO users (id, first_name, last_name, email, phone, password_hash, role, is_verified) VALUES
-(1, 'Admin', 'ElectroLab', 'admin@electrolab.in', '9876543210', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin', 1)
+(1, 'Admin', 'Printynozzle', 'info.printynozzle@gmail.com', '9836609063', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin', 1)
 ON DUPLICATE KEY UPDATE email = VALUES(email);
 
 -- ============================================================

@@ -8,7 +8,6 @@ import {
   ArrowLeft,
   Truck,
   Zap,
-  Clock,
   ShieldCheck,
   RotateCcw,
   Headphones,
@@ -21,6 +20,7 @@ import "../../public/css/checkout.css";
 import cartService from "../services/cart.service";
 import checkoutService from "../services/checkout.service";
 import catalogService from "../services/catalog.service";
+import shippingService from "../services/shipping.service";
 import profileService from "../services/profile.service";
 import { notifyCartChange } from "../utils/cartSync";
 
@@ -83,8 +83,12 @@ export default function Checkout() {
     saveAddress: true,
   });
 
-  // Shipping Option: "standard" | "express" | "sameday"
+  // Shipping Option: "standard" | "express"
   const [shippingOption, setShippingOption] = useState("standard");
+
+  // Live Delhivery rate for the entered pincode + selected mode.
+  // Applied to totals when fresh; flat Settings rates are the fallback.
+  const [liveQuote, setLiveQuote] = useState({ amount: null, pin: "", mode: "", loading: false });
 
   // Payment is Razorpay-only (UPI / Cards / NetBanking / Wallets all processed
   // securely through the Razorpay checkout — no other method is offered).
@@ -103,7 +107,6 @@ export default function Checkout() {
     shippingOptions: {
       standard: { cost: 0, label: "Standard Delivery", eta: "3-5 Working Days" },
       express: { cost: 99, label: "Express Delivery", eta: "1-2 Working Days" },
-      same_day: { cost: 149, label: "Same Day Delivery", eta: "Same day (Selected cities)" },
     },
   });
 
@@ -199,12 +202,47 @@ export default function Checkout() {
     return checkoutItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
   }, [checkoutItems]);
 
+  // Fetch the live Delhivery quote whenever a full pincode or the
+  // shipping mode changes (debounced; silent fallback to flat rates).
+  useEffect(() => {
+    const pin = String(formData.pincode || "").trim();
+    if (!/^\d{6}$/.test(pin)) {
+      setLiveQuote({ amount: null, pin: "", mode: "", loading: false });
+      return;
+    }
+    let active = true;
+    setLiveQuote((prev) => ({ ...prev, loading: true }));
+    const timer = setTimeout(async () => {
+      try {
+        const res = await shippingService.getCharges({ d_pin: pin, mode: shippingOption });
+        if (!active) return;
+        const amount = Number(res.data?.amount);
+        setLiveQuote(
+          Number.isFinite(amount)
+            ? { amount, pin, mode: shippingOption, loading: false }
+            : { amount: null, pin: "", mode: "", loading: false }
+        );
+      } catch {
+        if (active) setLiveQuote({ amount: null, pin: "", mode: "", loading: false });
+      }
+    }, 600);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [formData.pincode, shippingOption]);
+
+  const liveRateActive =
+    liveQuote.amount != null &&
+    liveQuote.pin === String(formData.pincode || "").trim() &&
+    liveQuote.mode === shippingOption;
+
   const shippingFee = useMemo(() => {
+    if (liveRateActive) return Number(liveQuote.amount);
     const options = storeConfig.shippingOptions || {};
     if (shippingOption === "express") return Number(options.express?.cost ?? 99);
-    if (shippingOption === "sameday") return Number(options.same_day?.cost ?? 149);
     return Number(options.standard?.cost ?? 0);
-  }, [shippingOption, storeConfig]);
+  }, [shippingOption, storeConfig, liveQuote, liveRateActive, formData.pincode]);
 
   const discount = useMemo(() => {
     return Number(serverDiscount || 0);
@@ -313,7 +351,7 @@ export default function Checkout() {
     shipping_state: formData.state,
     shipping_pincode: formData.pincode,
     shipping_country: formData.country,
-    delivery_option: shippingOption === "sameday" ? "same_day" : shippingOption,
+    delivery_option: shippingOption,
     // Razorpay-only checkout — stored as a generic online payment.
     payment_method: "upi",
   });
@@ -901,7 +939,12 @@ export default function Checkout() {
                       </div>
                     </div>
                     <div className="shipping-opt-price-group">
-                      {Number(storeConfig.shippingOptions?.standard?.cost || 0) === 0 ? (
+                      {liveRateActive && shippingOption === "standard" ? (
+                        <>
+                          <span className="shipping-opt-price">₹{liveQuote.amount}</span>
+                          <div className="shipping-opt-threshold">Live Delhivery rate</div>
+                        </>
+                      ) : Number(storeConfig.shippingOptions?.standard?.cost || 0) === 0 ? (
                         <>
                           <span className="shipping-opt-price free">FREE</span>
                           <div className="shipping-opt-threshold">on orders above ₹{storeConfig.freeShippingThreshold}</div>
@@ -930,37 +973,21 @@ export default function Checkout() {
                       </div>
                     </div>
                     <div className="shipping-opt-price-group">
-                      <span className="shipping-opt-price">₹{storeConfig.shippingOptions?.express?.cost ?? 99}</span>
+                      <span className="shipping-opt-price">
+                        ₹{liveRateActive && shippingOption === "express" ? liveQuote.amount : (storeConfig.shippingOptions?.express?.cost ?? 99)}
+                      </span>
+                      {liveRateActive && shippingOption === "express" && (
+                        <div className="shipping-opt-threshold">Live Delhivery rate</div>
+                      )}
                     </div>
                   </div>
 
-                  {/* Option 3: Same Day Delivery */}
-                  <div
-                    className={`shipping-option-item ${shippingOption === "sameday" ? "selected" : ""}`}
-                    onClick={() => setShippingOption("sameday")}
-                  >
-                    <div className="shipping-opt-left">
-                      <div className="shipping-radio-dot">
-                        <div className="shipping-radio-inner" />
-                      </div>
-                      <div className="shipping-opt-icon">
-                        <Clock size={20} />
-                      </div>
-                      <div className="shipping-opt-info">
-                        <span className="shipping-opt-title">{storeConfig.shippingOptions?.same_day?.label || "Same Day Delivery"}</span>
-                        <span className="shipping-opt-time">{storeConfig.shippingOptions?.same_day?.eta || "Within same day (Selected cities only)"}</span>
-                      </div>
-                    </div>
-                    <div className="shipping-opt-price-group">
-                      <span className="shipping-opt-price">₹{storeConfig.shippingOptions?.same_day?.cost ?? 149}</span>
-                    </div>
-                  </div>
                 </div>
 
                 {/* Dispatch notice */}
                 <div className="shipping-dispatch-notice">
                   <Info size={16} />
-                  <span>Order before 2:00 PM for same day dispatch</span>
+                  <span>Orders placed before 2:00 PM are dispatched the same day</span>
                 </div>
               </div>
 
@@ -1166,7 +1193,7 @@ export default function Checkout() {
                   </div>
 
                   <div className="summary-fin-row">
-                    <span className="summary-fin-label">Shipping</span>
+                    <span className="summary-fin-label">Shipping{liveRateActive ? " (Live rate)" : ""}</span>
                     <span className={`summary-fin-val ${shippingFee === 0 ? "free" : ""}`}>
                       {shippingFee === 0 ? "FREE" : `₹${shippingFee}`}
                     </span>
@@ -1263,7 +1290,7 @@ export default function Checkout() {
                 </div>
               </div>
 
-              {/* Card 4: Why Shop With ElectroLab / PrintyNozzle? */}
+              {/* Card 4: Why Shop With Printynozzle? */}
               <div className="checkout-card">
                 <h3 className="why-shop-title">Why Shop With PrintyNozzle?</h3>
                 <div className="why-shop-perks">

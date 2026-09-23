@@ -87,7 +87,7 @@ const initiateCheckout = async (req, res) => {
 
     // Get settings
     const [settings] = await db.query(
-      "SELECT setting_key, setting_value FROM site_settings WHERE setting_key IN ('free_shipping_threshold', 'gst_rate', 'standard_shipping_cost', 'express_shipping_cost', 'same_day_shipping_cost')"
+      "SELECT setting_key, setting_value FROM site_settings WHERE setting_key IN ('free_shipping_threshold', 'gst_rate', 'standard_shipping_cost', 'express_shipping_cost')"
     );
     const settingsMap = {};
     settings.forEach((s) => (settingsMap[s.setting_key] = parseFloat(s.setting_value)));
@@ -124,7 +124,6 @@ const initiateCheckout = async (req, res) => {
         shippingOptions: {
           standard: { cost: subtotal >= freeShippingThreshold ? 0 : (settingsMap.standard_shipping_cost || 0), label: "Standard Delivery", eta: "3-5 Working Days" },
           express: { cost: settingsMap.express_shipping_cost || 99, label: "Express Delivery", eta: "1-2 Working Days" },
-          same_day: { cost: settingsMap.same_day_shipping_cost || 149, label: "Same Day Delivery", eta: "Same day (Selected cities)" },
         },
         coupon: couponInfo,
         savedAddresses: addresses,

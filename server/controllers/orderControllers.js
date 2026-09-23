@@ -651,6 +651,10 @@ const createOrder = async (req, res) => {
       notes,
     } = req.body;
 
+    // Same-day delivery is discontinued — legacy clients still sending
+    // "same_day" are priced and stored as standard.
+    const effectiveDelivery = delivery_option === "same_day" ? "standard" : delivery_option;
+
     // Get user cart
     const [cart] = await connection.query("SELECT * FROM cart WHERE user_id = ?", [userId]);
     if (cart.length === 0) {
@@ -735,7 +739,7 @@ const createOrder = async (req, res) => {
 
     // Settings first (needed for GST-aware coupon)
     const [settings] = await connection.query(
-      "SELECT setting_key, setting_value FROM site_settings WHERE setting_key IN ('free_shipping_threshold', 'standard_shipping_cost', 'express_shipping_cost', 'same_day_shipping_cost', 'gst_rate', 'smooth_finish_per_gram')"
+      "SELECT setting_key, setting_value FROM site_settings WHERE setting_key IN ('free_shipping_threshold', 'standard_shipping_cost', 'express_shipping_cost', 'gst_rate', 'smooth_finish_per_gram')"
     );
     const configMap = {};
     settings.forEach((s) => (configMap[s.setting_key] = s.setting_value));
@@ -769,10 +773,8 @@ const createOrder = async (req, res) => {
     const freeThreshold = parseFloat(configMap.free_shipping_threshold || 999);
     let shippingCost = 0;
 
-    if (delivery_option === "express") {
+    if (effectiveDelivery === "express") {
       shippingCost = parseFloat(configMap.express_shipping_cost || 99);
-    } else if (delivery_option === "same_day") {
-      shippingCost = parseFloat(configMap.same_day_shipping_cost || 149);
     } else {
       shippingCost = subtotal >= freeThreshold ? 0 : parseFloat(configMap.standard_shipping_cost || 0);
     }
@@ -850,7 +852,7 @@ const createOrder = async (req, res) => {
         // GST invoice email for the 3D-print purchase.
         mailPrintInvoiceByIds(
           created.map((r) => r.id),
-          { shippingCost, deliveryOption: delivery_option, template: "cod" }
+          { shippingCost, deliveryOption: effectiveDelivery, template: "cod" }
         ).catch(() => {});
       }
       return res.status(201).json({
@@ -904,7 +906,7 @@ const createOrder = async (req, res) => {
         shipState,
         shipPin,
         shipCountry,
-        delivery_option,
+        effectiveDelivery,
         shippingCost,
         payment_method,
         methodLabels[payment_method] || "Online Payment (Razorpay)",

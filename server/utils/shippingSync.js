@@ -163,7 +163,18 @@ const createShipmentForOrder = async (type, id, { manual = false } = {}) => {
     return { skipped: "auto-off", message: "Auto-create is off (enable in Settings or create manually)" };
   }
   if (!settings.pickup.name || !/^\d{6}$/.test(settings.pickup.pincode || "")) {
-    throw new Error("Pickup warehouse name + pincode must be configured in Settings → Shipping");
+    throw new Error(
+      "Pickup warehouse name + pincode must be configured in Settings → Shipping. " +
+        "Copy the EXACT pickup name from your Delhivery One portal (B2C: Settings → Pickup Locations; PTL: My Facilities → Manage Warehouses), " +
+        "then use Admin → Shipping → Verify & Save (GET /admin/shipping/warehouses, POST /admin/shipping/warehouses/verify) to validate it. " +
+        "Delhivery has no list-all-warehouses API for token auth, so auto-fetch is not possible."
+    );
+  }
+  if (settings.env !== cfg.env) {
+    console.warn(
+      `⚠️ Delhivery env mismatch: Settings says "${settings.env}" but server .env (DELHIVERY_ENV) is "${cfg.env}". ` +
+        `Using "${settings.env}" for this call — restart the server after aligning DELHIVERY_ENV=${settings.env}.`
+    );
   }
 
   const table = tableFor(type);
@@ -195,6 +206,7 @@ const createShipmentForOrder = async (type, id, { manual = false } = {}) => {
   const result = await delhivery.createShipment({
     pickup_location: settings.pickup.name,
     shipments: [payload],
+    env: settings.env,
   });
   const pkg = (result.packages || [])[0] || {};
   const awb = String(pkg.waybill || pkg.awb || "").trim();
@@ -351,9 +363,10 @@ const syncActiveShipments = async ({ limit = 50 } = {}) => {
   const due = [...orders.map((o) => ({ type: "order", order: o })), ...prints.map((o) => ({ type: "print", order: o }))].slice(0, lim);
 
   const summary = { checked: 0, updated: 0, failed: 0, errors: [] };
+  const settings = await getShippingSettings();
   for (const { type, order } of due) {
     try {
-      const tracking = await delhivery.trackShipment(order.delhivery_awb);
+      const tracking = await delhivery.trackShipment(order.delhivery_awb, { env: settings.env });
       const res = await applyTrackingStatus(type, order, tracking);
       summary.checked += 1;
       if (res.changed) summary.updated += 1;

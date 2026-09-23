@@ -1,5 +1,26 @@
 const db = require("../../config/db");
 
+/* Whether the announcement-bar column exists (legacy DBs may lack it). */
+const hasAnnouncementColumn = async () => {
+  try {
+    const [rows] = await db.query(
+      `SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'coupons' AND COLUMN_NAME = 'show_in_announcement' LIMIT 1`
+    );
+    return rows.length > 0;
+  } catch {
+    return false;
+  }
+};
+
+/* One coupon on the announcement bar at a time — featuring one clears the rest. */
+const featureInAnnouncement = async (id = null) => {
+  if (id === null || id === undefined) {
+    await db.query("UPDATE coupons SET show_in_announcement = 0");
+  } else {
+    await db.query("UPDATE coupons SET show_in_announcement = 0 WHERE id <> ?", [id]);
+  }
+};
+
 /* ===================== GET ALL COUPONS ===================== */
 const getAllCoupons = async (req, res) => {
   try {
@@ -24,6 +45,7 @@ const createCoupon = async (req, res) => {
       valid_from,
       valid_until,
       is_active,
+      show_in_announcement,
     } = req.body;
 
     if (!code || !discount_type || !discount_value) {
@@ -40,10 +62,12 @@ const createCoupon = async (req, res) => {
       return res.status(409).json({ success: false, message: "Coupon code already exists" });
     }
 
+    const announceCol = await hasAnnouncementColumn();
+
     const [result] = await db.query(
-      `INSERT INTO coupons 
-       (code, discount_type, discount_value, min_order_amount, max_discount, usage_limit, valid_from, valid_until, is_active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO coupons
+       (code, discount_type, discount_value, min_order_amount, max_discount, usage_limit, valid_from, valid_until, is_active${announceCol ? ", show_in_announcement" : ""})
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?${announceCol ? ", ?" : ""})`,
       [
         upperCode,
         discount_type,
@@ -54,8 +78,15 @@ const createCoupon = async (req, res) => {
         valid_from || null,
         valid_until || null,
         is_active !== undefined ? (is_active ? 1 : 0) : 1,
+        ...(announceCol ? [show_in_announcement ? 1 : 0] : []),
       ]
     );
+
+    // One coupon on the announcement bar at a time.
+    if (announceCol && show_in_announcement) {
+      await featureInAnnouncement(result.insertId);
+      await db.query("UPDATE coupons SET show_in_announcement = 1 WHERE id = ?", [result.insertId]);
+    }
 
     return res.status(201).json({
       success: true,
@@ -82,6 +113,7 @@ const updateCoupon = async (req, res) => {
       valid_from,
       valid_until,
       is_active,
+      show_in_announcement,
     } = req.body;
 
     // `undefined` (key absent) = leave the column untouched.
@@ -118,9 +150,22 @@ const updateCoupon = async (req, res) => {
     if (valid_from !== undefined) setDirect("valid_from", valid_from === "" ? null : valid_from);
     if (valid_until !== undefined) setDirect("valid_until", valid_until === "" ? null : valid_until);
     if (is_active !== undefined) setDirect("is_active", is_active ? 1 : 0);
+    // Featuring a coupon clears the flag on every other coupon.
+    if (show_in_announcement !== undefined && (await hasAnnouncementColumn())) {
+      if (show_in_announcement) {
+        await featureInAnnouncement(id);
+        setDirect("show_in_announcement", 1);
+      } else {
+        setDirect("show_in_announcement", 0);
+      }
+    }
 
     if (params.some((p) => typeof p === "number" && Number.isNaN(p))) {
       return res.status(400).json({ success: false, message: "Numeric fields must contain valid numbers" });
+    }
+
+    if (assignments.length === 0) {
+      return res.status(200).json({ success: true, message: "Coupon updated successfully" });
     }
 
     const [result] = await db.query(

@@ -4,6 +4,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 
 import "../../public/css/navbar.css";
 import authServices from "../services/auth.service";
+import api from "../services/api.js";
 
 function Navbar() {
   const navigate = useNavigate();
@@ -52,6 +53,52 @@ const readCartCount = () => {
   const [cartCount, setCartCount] = useState(readCartCount);
 
   const [avatarError, setAvatarError] = useState(false);
+
+  // Featured coupon for the announcement bar (null = default shipping text).
+  const [announcementCoupon, setAnnouncementCoupon] = useState(null);
+
+  // "Copied!" feedback for the announcement coupon code.
+  const [announceCopied, setAnnounceCopied] = useState(false);
+
+  const copyAnnouncementCode = async () => {
+    if (!announcementCoupon?.code || announceCopied) return;
+    const showCopied = () => {
+      setAnnounceCopied(true);
+      setTimeout(() => setAnnounceCopied(false), 1600);
+    };
+    try {
+      await navigator.clipboard.writeText(announcementCoupon.code);
+      showCopied();
+    } catch (error) {
+      // Clipboard API unavailable (older browsers / non-secure context).
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = announcementCoupon.code;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        ta.remove();
+        showCopied();
+      } catch (fallbackError) {
+        /* copy unavailable — leave the code visible for manual copy */
+      }
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+    api
+      .get("/coupons/announcement")
+      .then((res) => {
+        if (active) setAnnouncementCoupon(res.data?.coupon || null);
+      })
+      .catch(() => {
+        if (active) setAnnouncementCoupon(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const isLoggedIn = authState.isLoggedIn;
   const user = authState.user;
@@ -288,13 +335,41 @@ useEffect(() => {
 
       <div className="announcement-bar">
         <div className="announcement-content">
-          <i className="bi bi-truck announcement-icon"></i>
+          {announcementCoupon ? (
+            <>
+              <i className="bi bi-ticket-perforated announcement-icon"></i>
 
-          <span>Free Shipping on orders over ₹999</span>
+              <span>Use code</span>
 
-          <span className="announcement-divider">|</span>
+              <button
+                type="button"
+                className="announcement-code"
+                onClick={copyAnnouncementCode}
+                title="Click to copy code"
+              >
+                <span>{announcementCoupon.code}</span>
+                <i className={`bi ${announceCopied ? "bi-check2" : "bi-clipboard"}`}></i>
+              </button>
 
-          <span>Fast Delivery Across India</span>
+              <span className="announcement-offer">— {announcementCoupon.text}</span>
+
+              {announceCopied && <span className="announcement-copied">Copied!</span>}
+
+              <span className="announcement-divider">|</span>
+
+              <span>Fast Delivery Across India</span>
+            </>
+          ) : (
+            <>
+              <i className="bi bi-truck announcement-icon"></i>
+
+              <span>Free Shipping on orders over ₹999</span>
+
+              <span className="announcement-divider">|</span>
+
+              <span>Fast Delivery Across India</span>
+            </>
+          )}
         </div>
       </div>
 

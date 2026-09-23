@@ -90,6 +90,90 @@
 }
 
 
+/* Coupon code ticket chip (click to copy) */
+.announcement-code {
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: 5px;
+
+  padding:
+    3px 9px;
+
+  background:
+    rgba(255, 255, 255, 0.16);
+
+  border:
+    1px dashed rgba(255, 255, 255, 0.8);
+
+  border-radius: 6px;
+
+  color: #ffffff;
+
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  font-size: 11.5px;
+
+  font-weight: 800;
+
+  letter-spacing: 0.06em;
+
+  cursor: pointer;
+
+  transition:
+    background 0.18s ease,
+    transform 0.18s ease;
+}
+
+
+.announcement-code:hover {
+  background:
+    rgba(255, 255, 255, 0.3);
+
+  transform:
+    translateY(-0.5px);
+}
+
+
+.announcement-code:active {
+  transform:
+    translateY(0);
+}
+
+
+.announcement-code i {
+  font-size: 10px;
+
+  opacity: 0.9;
+}
+
+
+.announcement-copied {
+  padding:
+    2px 8px;
+
+  background:
+    #ffffff;
+
+  color: #15803d;
+
+  border-radius: 999px;
+
+  font-size: 10.5px;
+
+  font-weight: 800;
+}
+
+
+.announcement-offer {
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+}
+
+
 /* =========================================================
    MAIN NAVBAR
    ========================================================= */
@@ -1744,6 +1828,13 @@ and (min-width: 992px) {
 
   .announcement-content {
     gap: 5px;
+  }
+
+
+  .announcement-offer {
+    max-width: 38vw;
+
+    white-space: nowrap;
   }
 
 
