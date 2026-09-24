@@ -549,7 +549,7 @@ export default function ModelViewer3D({
       {/* Loading Overlay */}
       {loading && (
         <div className="model-viewer-loading">
-          <div className="spinner-border text-primary spinner-border-sm" role="status" />
+          <div className="spinner-border spinner-border-sm" role="status" style={{ color: "#FF7508" }} />
           <span>Processing 3D Geometry...</span>
         </div>
       )}

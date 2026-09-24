@@ -3,12 +3,12 @@
 :root {
   --searchbar-color: rgb(223 225 253);
 
-  --pn-blue: #0759d6;
-  --pn-blue-dark: #0649b5;
-  --pn-blue-deep: #032b73;
-  --pn-blue-deeper: #021f52;
+  --pn-blue: #FF7508;
+  --pn-blue-dark: #D96200;
+  --pn-blue-deep: #7C3A00;
+  --pn-blue-deeper: #4A2400;
 
-  --pn-blue-soft: #eff5ff;
+  --pn-blue-soft: #FFF4EA;
 
   --pn-orange: #ff7a00;
   --pn-orange-dark: #e96700;
@@ -22,7 +22,7 @@
   --pn-white-soft: rgba(255, 255, 255, 0.72);
 
   --pn-shadow:
-    0 12px 30px rgba(20, 40, 80, 0.09);
+    0 12px 30px rgba(255, 117, 8, 0.09);
 }
 
 * {
@@ -123,7 +123,7 @@ select {
 
   font-size: 0.85rem !important;
   font-weight: 600;
-  color: #14183e;
+  color: #4A2400;
 
   cursor: pointer;
   transition: all 0.25s ease;
@@ -178,7 +178,7 @@ select:disabled {
 
 .error-card h4 {
   font-weight: 600;
-  color: #14183e;
+  color: #4A2400;
 }
 
 .error-text {

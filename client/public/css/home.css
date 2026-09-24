@@ -18,7 +18,7 @@
   display: flex;
   align-items: center;
 
-  background: #edf5ff;
+  background: #FFF4EA;
 
   isolation: isolate;
 }
@@ -192,7 +192,7 @@
   background: var(--pn-blue);
 
   box-shadow:
-    0 0 0 5px rgba(7, 89, 214, 0.10);
+    0 0 0 5px rgba(255, 117, 8, 0.10);
 }
 
 
@@ -203,7 +203,7 @@
 .home-hero-title {
   margin: 0;
 
-  color: #0d172b;
+  color: #4A2400;
 
   font-family: "EB Garamond", serif !important;
 
@@ -339,7 +339,7 @@
   border: 1px solid var(--pn-blue);
 
   box-shadow:
-    0 8px 20px rgba(7, 89, 214, 0.22);
+    0 8px 20px rgba(255, 117, 8, 0.22);
 }
 
 
@@ -353,7 +353,7 @@
   transform: translateY(-2px);
 
   box-shadow:
-    0 12px 26px rgba(7, 89, 214, 0.27);
+    0 12px 26px rgba(255, 117, 8, 0.27);
 }
 
 
@@ -366,7 +366,7 @@
 
   background: rgba(255, 255, 255, 0.86);
 
-  border: 1px solid rgba(7, 89, 214, 0.28);
+  border: 1px solid rgba(255, 117, 8, 0.28);
 
   box-shadow:
     0 4px 14px rgba(30, 70, 110, 0.06);
@@ -434,7 +434,7 @@
 
   border-radius: 20px;
 
-  background: rgba(7, 89, 214, 0.22);
+  background: rgba(255, 117, 8, 0.22);
 
   cursor: pointer;
 
@@ -445,7 +445,7 @@
 
 
 .home-hero-dot:hover {
-  background: rgba(7, 89, 214, 0.48);
+  background: rgba(255, 117, 8, 0.48);
 }
 
 
@@ -514,7 +514,7 @@
 
   background: rgba(255, 255, 255, 0.90);
 
-  border: 1px solid rgba(7, 89, 214, 0.18);
+  border: 1px solid rgba(255, 117, 8, 0.18);
 }
 
 
@@ -541,7 +541,7 @@
   border: 1px solid var(--pn-blue);
 
   box-shadow:
-    0 7px 18px rgba(7, 89, 214, 0.20);
+    0 7px 18px rgba(255, 117, 8, 0.20);
 }
 
 
@@ -553,7 +553,7 @@
   transform: translateY(-2px);
 
   box-shadow:
-    0 10px 22px rgba(7, 89, 214, 0.28);
+    0 10px 22px rgba(255, 117, 8, 0.28);
 }
 
 
@@ -937,8 +937,8 @@
   align-items: center;
   justify-content: center;
 
-  color: #0759d6;
-  background: #edf4fe;
+  color: #FF7508;
+  background: #FFF4EA;
 
   border-radius: 12px;
 }
@@ -961,7 +961,7 @@
 .home-benefit-content h3 {
   margin: 0;
 
-  color: #17223a;
+  color: #4A2400;
   font-family: "Sanchez", serif !important;
   font-size: 13px;
   font-weight: 700;
@@ -998,7 +998,7 @@
 .home-products-heading h2 {
   margin: 0;
   text-align: center;
-  color: #17223a;
+  color: #4A2400;
   font-family: "Sanchez", serif !important;
   font-size: 22px;
   font-weight: 700;
@@ -1047,7 +1047,7 @@
 
 .home-category-card:hover {
   transform: translateY(-4px);
-  border-color: #d0e1fd;
+  border-color: #FFD9B3;
   box-shadow: 0 10px 25px rgba(10, 50, 110, 0.08);
 }
 
@@ -1097,8 +1097,8 @@
   align-items: center;
   justify-content: center;
 
-  color: #0759d6;
-  background: #f0f6ff;
+  color: #FF7508;
+  background: #FFF4EA;
   border-radius: 12px;
 }
 
@@ -1125,7 +1125,7 @@
 
 .home-all-products-icon span {
   display: block;
-  border: 2.2px solid #0759d6;
+  border: 2.2px solid #FF7508;
   border-radius: 4px;
 }
 
@@ -1154,8 +1154,8 @@
 
   border-radius: 16px;
 
-  background: linear-gradient(115deg, #ebf3fe 0%, #f4f8fe 52%, #eaf2fd 100%);
-  border: 1px solid #dce8fa;
+  background: linear-gradient(115deg, #FFF4EA 0%, #FFF4EA 52%, #FFF4EA 100%);
+  border: 1px solid #FFF4EA;
 }
 
 .home-printing-card::after {
@@ -1179,7 +1179,7 @@
   display: inline-block;
   margin-bottom: 6px;
 
-  color: #0759d6;
+  color: #FF7508;
   font-family: "Sanchez", serif !important;
   font-size: 11px;
   font-weight: 700;
@@ -1189,7 +1189,7 @@
 .home-printing-content h2 {
   margin: 0 0 14px;
 
-  color: #0759d6;
+  color: #FF7508;
   font-family: "Sanchez", serif !important;
   font-size: 26px;
   font-weight: 700;
@@ -1231,8 +1231,8 @@
   padding: 0 20px;
 
   color: #ffffff;
-  background: #0759d6;
-  border: 1px solid #0759d6;
+  background: #FF7508;
+  border: 1px solid #FF7508;
   border-radius: 6px;
 
   font-family: "Sanchez", serif !important;
@@ -1243,10 +1243,10 @@
 }
 
 .home-printing-btn:hover {
-  background: #0649b5;
-  border-color: #0649b5;
+  background: #D96200;
+  border-color: #D96200;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(7, 89, 214, 0.25);
+  box-shadow: 0 4px 12px rgba(255, 117, 8, 0.25);
 }
 
 .home-printing-btn svg {
@@ -1275,7 +1275,7 @@
   flex-direction: column;
 
   background: #ffffff;
-  border: 1px solid #e1ebf7;
+  border: 1px solid #FFF4EA;
   border-radius: 12px;
 
   box-shadow: 0 4px 18px rgba(25, 60, 120, 0.05);
@@ -1298,7 +1298,7 @@
   justify-content: center;
 
   color: #ffffff;
-  background: #0759d6;
+  background: #FF7508;
   border-radius: 50%;
 
   font-family: Arial, sans-serif !important;
@@ -1330,7 +1330,7 @@
 
   padding: 12px 10px;
 
-  border: 1.5px dashed #c8daf2;
+  border: 1.5px dashed #FFD9B3;
   background: #f8fbff;
   border-radius: 8px;
 
@@ -1339,8 +1339,8 @@
 }
 
 .home-printing-upload-box:hover {
-  border-color: #0759d6;
-  background: #f0f6ff;
+  border-color: #FF7508;
+  background: #FFF4EA;
 }
 
 .home-printing-upload-text {
@@ -1359,7 +1359,7 @@
 
 .home-printing-choose-btn {
   padding: 5px 14px;
-  background: #0759d6;
+  background: #FF7508;
   color: #ffffff;
   border: none;
   border-radius: 5px;
@@ -1372,7 +1372,7 @@
 }
 
 .home-printing-choose-btn:hover {
-  background: #0649b5;
+  background: #D96200;
 }
 
 .home-printing-colors {
@@ -1424,7 +1424,7 @@
 }
 
 .swatch-blue {
-  background: #0284c7;
+  background: #FF7508;
 }
 
 .swatch-purple {
@@ -1511,7 +1511,7 @@
 
 .home-product-card:hover {
   transform: translateY(-4px);
-  border-color: #d0e1fd;
+  border-color: #FFD9B3;
   box-shadow: 0 10px 26px rgba(15, 50, 120, 0.09);
 }
 
@@ -1566,7 +1566,7 @@
 }
 
 .home-product-name:hover {
-  color: #0759d6;
+  color: #FF7508;
 }
 
 .home-product-bottom {
@@ -1578,7 +1578,7 @@
 }
 
 .home-product-bottom strong {
-  color: #0759d6;
+  color: #FF7508;
   font-family: "Sanchez", serif !important;
   font-size: 14px;
   font-weight: 700;
@@ -1594,9 +1594,9 @@
   justify-content: center;
 
   padding: 0;
-  color: #0759d6;
+  color: #FF7508;
   background: #ffffff;
-  border: 1px solid #d0e1fd;
+  border: 1px solid #FFD9B3;
   border-radius: 6px;
 
   cursor: pointer;
@@ -1608,8 +1608,8 @@
 
 .home-product-cart:hover {
   color: #ffffff;
-  background: #0759d6;
-  border-color: #0759d6;
+  background: #FF7508;
+  border-color: #FF7508;
 }
 
 .home-product-cart svg {

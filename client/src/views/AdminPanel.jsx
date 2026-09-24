@@ -65,6 +65,7 @@ import {
   Upload,
 } from "lucide-react";
 import adminService from "../services/admin.service";
+import ManualOrders from "../components/admin/ManualOrders";
 import "../../public/css/admin.css";
 
 const money = (value) =>
@@ -1791,6 +1792,7 @@ function AdminPanel() {
     { id: "dashboard", label: "Dashboard", Icon: BarChart3 },
     { id: "products", label: "Products", Icon: Box },
     { id: "orders", label: "Orders", Icon: ClipboardList },
+    { id: "manual", label: "Manual Orders", Icon: FileText },
     { id: "printing", label: "3D Printing", Icon: Cuboid },
     { id: "users", label: "Users", Icon: Users },
     { id: "coupons", label: "Coupons", Icon: Tag },
@@ -1804,7 +1806,7 @@ function AdminPanel() {
 
   const navGroups = [
     { label: "Overview", ids: ["dashboard"] },
-    { label: "Sales", ids: ["orders", "printing", "coupons"] },
+    { label: "Sales", ids: ["orders", "manual", "printing", "coupons"] },
     { label: "Catalog", ids: ["products", "catalog", "brands", "reviews"] },
     { label: "Customers", ids: ["users", "subscribers", "contacts"] },
     { label: "System", ids: ["settings"] },
@@ -2208,6 +2210,7 @@ function AdminPanel() {
                 dashboard: "Live store performance, revenue and order health at a glance.",
                 products: "Manage your storefront catalog, pricing, stock and visibility.",
                 orders: "Track, fulfil and update every customer order.",
+                manual: "Offline and phone orders with saved GST invoices.",
                 printing: "Custom 3D print jobs, materials and colors.",
                 users: "Customers and admin access in one place.",
                 coupons: "Discount codes that grow average order value.",
@@ -2240,11 +2243,11 @@ function AdminPanel() {
               <>
                 <section className="admin-stat-grid">
                   {[
-                    ["Revenue", money(stats.totalRevenue), BarChart3, "Paid orders", "linear-gradient(135deg,#0759d6,#3f9bff)", "rgba(7,89,214,.28)"],
+                    ["Revenue", money(stats.totalRevenue), BarChart3, "Paid orders", "linear-gradient(135deg,#FF7508,#FFA94D)", "rgba(255,117,8,.28)"],
                     ["Orders", stats.totalOrders || 0, ClipboardList, "All product orders", "linear-gradient(135deg,#7c3aed,#a78bfa)", "rgba(124,58,237,.28)"],
                     ["3D Print Orders", stats.totalPrintOrders || 0, Cuboid, "Custom print jobs", "linear-gradient(135deg,#ea580c,#ffb21f)", "rgba(234,88,12,.28)"],
                     ["Customers", stats.totalUsers || 0, Users, "Registered users", "linear-gradient(135deg,#059669,#34d399)", "rgba(5,150,105,.28)"],
-                    ["Products", stats.totalProducts || 0, Box, "Live catalog", "linear-gradient(135deg,#0284c7,#38bdf8)", "rgba(2,132,199,.28)"],
+                    ["Products", stats.totalProducts || 0, Box, "Live catalog", "linear-gradient(135deg,#E05E00,#FF7508)", "rgba(224,94,0,.28)"],
                     ["Low Stock", stats.lowStockCount || 0, ShieldCheck, "Needs restock", "linear-gradient(135deg,#dc2626,#f87171)", "rgba(220,38,38,.28)"],
                   ].map(([label, value, Icon, hint, ico, glow]) => (
                     <article
@@ -2930,6 +2933,15 @@ function AdminPanel() {
                 }}
                 statusOptions={statusOptions}
                 money={money}
+              />
+            )}
+
+            {activeTab === "manual" && (
+              <ManualOrders
+                categories={categories}
+                brands={brands}
+                products={products}
+                materials={materials}
               />
             )}
 

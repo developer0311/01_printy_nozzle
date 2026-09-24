@@ -29,6 +29,16 @@ function Navbar() {
 
   const [productsOpen, setProductsOpen] = useState(false);
 
+  const [bestSellerCats, setBestSellerCats] = useState([]);
+
+  const [activeBestSlug, setActiveBestSlug] = useState(null);
+
+  const [bestSellerLoading, setBestSellerLoading] = useState(false);
+
+  const [mobileBestOpen, setMobileBestOpen] = useState(false);
+
+  const [mobileActiveBestSlug, setMobileActiveBestSlug] = useState(null);
+
   const [accountOpen, setAccountOpen] = useState(false);
 
   const [search, setSearch] = useState("");
@@ -119,8 +129,42 @@ const readCartCount = () => {
 
     setProductsOpen(false);
 
+    setMobileBestOpen(false);
+
     setAccountOpen(false);
   };
+
+  /* =====================================================
+     BEST SELLERS MENU (AUTOMATIC FROM ORDERS)
+     ===================================================== */
+
+  useEffect(() => {
+    let active = true;
+    setBestSellerLoading(true);
+    api
+      .get("/products/best-sellers/menu")
+      .then((res) => {
+        if (!active) return;
+        const cats = res.data?.categories || [];
+        setBestSellerCats(cats);
+        if (cats.length > 0) {
+          setActiveBestSlug(cats[0].slug);
+          setMobileActiveBestSlug(cats[0].slug);
+        }
+      })
+      .catch(() => {
+        if (active) setBestSellerCats([]);
+      })
+      .finally(() => {
+        if (active) setBestSellerLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const activeBestCategory =
+    bestSellerCats.find((c) => c.slug === activeBestSlug) || bestSellerCats[0] || null;
 
   /* =====================================================
      OUTSIDE CLICK + ESCAPE
@@ -159,6 +203,8 @@ useEffect(() => {
 
         setProductsOpen(false);
 
+        setMobileBestOpen(false);
+
         setAccountOpen(false);
       }
     };
@@ -170,6 +216,8 @@ useEffect(() => {
         setSearchOpen(false);
 
         setProductsOpen(false);
+
+        setMobileBestOpen(false);
 
         setAccountOpen(false);
       }
@@ -280,6 +328,8 @@ useEffect(() => {
 
     setProductsOpen(false);
 
+    setMobileBestOpen(false);
+
     setAccountOpen(false);
   };
 
@@ -311,6 +361,8 @@ useEffect(() => {
     setSearchOpen(false);
 
     setProductsOpen(false);
+
+    setMobileBestOpen(false);
   };
 
   /* =====================================================
@@ -385,11 +437,53 @@ useEffect(() => {
 
           <NavLink to="/" className="brand-logo" onClick={closeNavbar}>
             <img
-              src="/images/logo.png"
+              src="/images/logo-shade.png"
               alt="Printy Nozzles"
               className="brand-logo-image"
             />
           </NavLink>
+
+          {/* =================================================
+              DESKTOP SEARCH — ALWAYS VISIBLE BESIDE LOGO
+              ================================================= */}
+
+          <div className="desktop-search">
+            <form className="desktop-search-form" onSubmit={handleSearch}>
+              <i className="bi bi-search"></i>
+
+              <input
+                ref={desktopSearchInputRef}
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                type="text"
+                placeholder="Search products..."
+                aria-label="Search products"
+              />
+
+              {search && (
+                <button
+                  type="button"
+                  className="desktop-search-clear"
+                  onClick={() => {
+                    setSearch("");
+
+                    desktopSearchInputRef.current?.focus();
+                  }}
+                  aria-label="Clear search"
+                >
+                  <i className="bi bi-x"></i>
+                </button>
+              )}
+
+              <button
+                type="submit"
+                className="desktop-search-submit"
+                aria-label="Submit search"
+              >
+                <i className="bi bi-arrow-right"></i>
+              </button>
+            </form>
+          </div>
 
           {/* =================================================
               DESKTOP NAVIGATION
@@ -476,6 +570,136 @@ useEffect(() => {
               </li>
 
               {/* =================================================
+                  BEST SELLERS (AUTOMATIC FROM ORDERS)
+                  ================================================= */}
+
+              <li className="nav-item bestseller-nav-item">
+                <NavLink
+                  to="/products?sort=bestselling"
+                  className={({ isActive }) =>
+                    `nav-link-custom ${isActive ? "active" : ""}`
+                  }
+                  onClick={closeNavbar}
+                >
+                  <span>Best Sellers</span>
+
+                  <i className="bi bi-chevron-down products-arrow"></i>
+                </NavLink>
+
+                {/* BEST SELLERS MEGA DROPDOWN */}
+
+                <div className="bestseller-dropdown">
+                  {bestSellerLoading ? (
+                    <div className="bestseller-loading">Loading best sellers...</div>
+                  ) : bestSellerCats.length === 0 ? (
+                    <div className="bestseller-loading">No best sellers yet.</div>
+                  ) : (
+                    <>
+                      {/* LEFT: TOP 6 CATEGORIES */}
+
+                      <div className="bestseller-categories">
+                        <p className="bestseller-panel-title">Top Categories</p>
+
+                        {bestSellerCats.map((cat) => (
+                          <button
+                            key={cat.slug}
+                            type="button"
+                            className={`bestseller-cat-btn ${
+                              activeBestCategory?.slug === cat.slug ? "active" : ""
+                            }`}
+                            onMouseEnter={() => setActiveBestSlug(cat.slug)}
+                            onFocus={() => setActiveBestSlug(cat.slug)}
+                            onClick={() => {
+                              closeNavbar();
+                              navigate(`/products?category=${encodeURIComponent(cat.slug)}&sort=bestselling`);
+                            }}
+                          >
+                            <span className="bestseller-cat-name">{cat.name}</span>
+
+                            <span className="bestseller-cat-count">
+                              {cat.units_sold > 0 ? `${cat.units_sold} sold` : `${cat.product_count} items`}
+                            </span>
+
+                            <i className="bi bi-chevron-right"></i>
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* RIGHT: TOP 6 PRODUCTS OF HOVERED CATEGORY */}
+
+                      <div className="bestseller-products">
+                        <div className="bestseller-products-head">
+                          <p className="bestseller-panel-title">
+                            Best in {activeBestCategory?.name || ""}
+                          </p>
+
+                          <button
+                            type="button"
+                            className="bestseller-view-all"
+                            onClick={() => {
+                              closeNavbar();
+                              navigate(
+                                `/products?category=${encodeURIComponent(activeBestCategory?.slug || "")}&sort=bestselling`
+                              );
+                            }}
+                          >
+                            View all <i className="bi bi-arrow-right"></i>
+                          </button>
+                        </div>
+
+                        <div className="bestseller-products-grid">
+                          {(activeBestCategory?.products || []).slice(0, 6).map((p) => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              className="bestseller-product-card"
+                              onClick={() => {
+                                closeNavbar();
+                                navigate(`/products/${p.slug || p.id}`);
+                              }}
+                            >
+                              <span className="bestseller-product-img">
+                                {p.primary_image ? (
+                                  <img src={p.primary_image} alt={p.name} loading="lazy" />
+                                ) : (
+                                  <i className="bi bi-image"></i>
+                                )}
+                              </span>
+
+                              <span className="bestseller-product-info">
+                                <span className="bestseller-product-name">{p.name}</span>
+
+                                <span className="bestseller-product-meta">
+                                  <span className="bestseller-product-price">₹{p.price}</span>
+
+                                  {Number(p.avg_rating) > 0 && (
+                                    <span className="bestseller-product-rating">
+                                      <i className="bi bi-star-fill"></i>
+                                      {Number(p.avg_rating).toFixed(1)}
+                                    </span>
+                                  )}
+                                </span>
+
+                                {Number(p.total_sold) > 0 && (
+                                  <span className="bestseller-product-sold">
+                                    {p.total_sold} sold
+                                  </span>
+                                )}
+                              </span>
+                            </button>
+                          ))}
+
+                          {(activeBestCategory?.products || []).length === 0 && (
+                            <div className="bestseller-loading">No products in this category yet.</div>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </li>
+
+              {/* =================================================
                   3D PRINTING
                   ================================================= */}
 
@@ -514,63 +738,6 @@ useEffect(() => {
               ================================================= */}
 
           <div className="navbar-actions">
-            {/* =================================================
-                DESKTOP SEARCH
-                ================================================= */}
-
-            <div
-              className={`desktop-search ${
-                searchOpen ? "desktop-search-open" : ""
-              }`}
-            >
-              {searchOpen ? (
-                <form className="desktop-search-form" onSubmit={handleSearch}>
-                  <i className="bi bi-search"></i>
-
-                  <input
-                    ref={desktopSearchInputRef}
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    type="text"
-                    placeholder="Search products..."
-                    aria-label="Search products"
-                  />
-
-                  {search && (
-                    <button
-                      type="button"
-                      className="desktop-search-clear"
-                      onClick={() => {
-                        setSearch("");
-
-                        desktopSearchInputRef.current?.focus();
-                      }}
-                      aria-label="Clear search"
-                    >
-                      <i className="bi bi-x"></i>
-                    </button>
-                  )}
-
-                  <button
-                    type="submit"
-                    className="desktop-search-submit"
-                    aria-label="Submit search"
-                  >
-                    <i className="bi bi-arrow-right"></i>
-                  </button>
-                </form>
-              ) : (
-                <button
-                  type="button"
-                  className="nav-icon-btn"
-                  onClick={toggleSearch}
-                  aria-label="Search"
-                >
-                  <i className="bi bi-search"></i>
-                </button>
-              )}
-            </div>
-
             {/* =================================================
                 MOBILE SEARCH BUTTON
                 ================================================= */}
@@ -894,6 +1061,8 @@ useEffect(() => {
                 onClick={() => {
                   setProductsOpen((previous) => !previous);
 
+                  setMobileBestOpen(false);
+
                   setAccountOpen(false);
                 }}
               >
@@ -948,6 +1117,93 @@ useEffect(() => {
 
                   <span>Tools & Accessories</span>
                 </NavLink>
+              </div>
+            </div>
+
+            {/* =================================================
+                BEST SELLERS (MOBILE — TAP TO EXPAND)
+                ================================================= */}
+
+            <div className="mobile-products">
+              <button
+                type="button"
+                className={`mobile-nav-link mobile-products-button ${
+                  mobileBestOpen ? "active" : ""
+                }`}
+                onClick={() => {
+                  setMobileBestOpen((previous) => !previous);
+
+                  setProductsOpen(false);
+
+                  setAccountOpen(false);
+                }}
+              >
+                <span>Best Sellers</span>
+
+                <i
+                  className={`bi ${
+                    mobileBestOpen ? "bi-chevron-up" : "bi-chevron-down"
+                  }`}
+                ></i>
+              </button>
+
+              <div
+                className={`mobile-products-dropdown ${
+                  mobileBestOpen ? "mobile-products-visible" : ""
+                }`}
+              >
+                <NavLink to="/products?sort=bestselling" onClick={closeNavbar}>
+                  <i className="bi bi-trophy"></i>
+
+                  <span>All Best Sellers</span>
+                </NavLink>
+
+                {bestSellerCats.map((cat) => {
+                  const expanded = mobileActiveBestSlug === cat.slug;
+                  return (
+                    <div key={cat.slug} className="mobile-best-cat">
+                      <button
+                        type="button"
+                        className="mobile-best-cat-btn"
+                        onClick={() =>
+                          setMobileActiveBestSlug(expanded ? null : cat.slug)
+                        }
+                      >
+                        <span>{cat.name}</span>
+
+                        <i className={`bi ${expanded ? "bi-chevron-up" : "bi-chevron-down"}`}></i>
+                      </button>
+
+                      {expanded && (
+                        <div className="mobile-best-products">
+                          {(cat.products || []).slice(0, 6).map((p) => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              className="mobile-best-product"
+                              onClick={() => {
+                                closeNavbar();
+                                navigate(`/products/${p.slug || p.id}`);
+                              }}
+                            >
+                              <span className="mobile-best-product-img">
+                                {p.primary_image ? (
+                                  <img src={p.primary_image} alt={p.name} loading="lazy" />
+                                ) : (
+                                  <i className="bi bi-image"></i>
+                                )}
+                              </span>
+
+                              <span className="mobile-best-product-name">{p.name}</span>
+
+                              <span className="mobile-best-product-price">₹{p.price}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 

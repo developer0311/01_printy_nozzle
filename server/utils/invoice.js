@@ -394,6 +394,138 @@ const buildPrintInvoiceData = ({ prints = [], settings, shippingCost = 0, delive
 const invoiceFileName = (data) =>
   `Invoice-${String(data.invoiceNumber || "invoice").replace(/[^A-Za-z0-9-_]+/g, "-")}.pdf`;
 
+/* ===================== MANUAL INVOICE (ADMIN — NO ORDER ROW) =====================
+ * Admin types every invoice field (customer, shipping, line items with HSN /
+ * rate / qty / discount) and we render it with the same Robu-style template.
+ * Nothing is written to `orders` / `order_items` — this is an offline /
+ * phone-order invoice generator, so no user account is required.
+ */
+const buildManualInvoiceData = ({
+  customer = {},
+  shipping = null,
+  shippingSameAsBilling = true,
+  invoice = {},
+  gstRate = 18,
+  items = [],
+  shippingCost = 0,
+  deliveryOption = "standard",
+  discount = 0,
+  payment = {},
+  settings,
+}) => {
+  const { company, jurisdiction, hsns, terms } = settings;
+  const rate = Number(gstRate);
+  const taxRate = Number.isFinite(rate) && rate >= 0 ? rate : 18;
+
+  const clean = (v) => (v === undefined || v === null ? "" : String(v).trim());
+
+  const bill = {
+    name: clean(customer.name) || "Customer",
+    email: clean(customer.email),
+    phone: clean(customer.phone),
+    line1: [clean(customer.address1), clean(customer.address2), clean(customer.city)]
+      .filter(Boolean)
+      .join(", "),
+    line2: [
+      [clean(customer.state), clean(customer.pincode)].filter(Boolean).join(", "),
+      clean(customer.country) || "India",
+    ]
+      .filter(Boolean)
+      .join(", "),
+    placeOfSupply: placeOfSupply(clean(customer.state)),
+  };
+
+  const shipSrc = shippingSameAsBilling || !shipping ? customer : shipping;
+  const ship = {
+    name: clean(shipSrc.name) || bill.name,
+    line1: [clean(shipSrc.address1), clean(shipSrc.address2), clean(shipSrc.city)]
+      .filter(Boolean)
+      .join(", "),
+    line2: [
+      [clean(shipSrc.state), clean(shipSrc.pincode)].filter(Boolean).join(", "),
+      clean(shipSrc.country) || "India",
+    ]
+      .filter(Boolean)
+      .join(", "),
+    phone: clean(shipSrc.phone) || bill.phone,
+    email: clean(shipSrc.email) || bill.email,
+  };
+
+  const lines = (Array.isArray(items) ? items : []).map((it, idx) => {
+    const unit = Math.max(0, Number(it.rate) || 0);
+    const qty = Math.max(0, Number(it.qty) || 0);
+    const gross = round2(unit * qty);
+    const disc = Math.min(Math.max(0, Number(it.disc) || 0), gross);
+    const amount = round2(gross - disc);
+    const tax = round2((amount * taxRate) / 100);
+    const fallbackHsn = it.item_type === "print" ? hsns.print : hsns.product;
+    return {
+      sno: idx + 1,
+      description: clean(it.description) || `Item ${idx + 1}`,
+      hsn: clean(it.hsn) || fallbackHsn,
+      rate: unit,
+      qty,
+      disc,
+      amount,
+      taxRate,
+      tax,
+      total: round2(amount + tax),
+    };
+  });
+
+  const shipTotal = Math.max(0, Number(shippingCost) || 0);
+  if (shipTotal > 0) {
+    const base = round2((shipTotal * 100) / (100 + taxRate));
+    lines.push({
+      sno: lines.length + 1,
+      description: `Delivery (${clean(deliveryOption) || "standard"})`,
+      hsn: hsns.shipping,
+      rate: base,
+      qty: 1,
+      disc: 0,
+      amount: base,
+      taxRate,
+      tax: round2(shipTotal - base),
+      total: round2(shipTotal),
+    });
+  }
+
+  const subtotal = round2(lines.reduce((s, l) => s + l.amount, 0));
+  const taxTotal = round2(lines.reduce((s, l) => s + l.tax, 0));
+  const orderDiscount = Math.max(0, Number(discount) || 0);
+  const grandTotal = Math.max(0, round2(subtotal + taxTotal - orderDiscount));
+  const qtyTotal = lines.reduce((s, l) => s + Number(l.qty || 0), 0);
+
+  const invoiceNumber = clean(invoice.number) || `INV-MANUAL-${Date.now().toString(36).toUpperCase()}`;
+  const saleOrder = clean(invoice.saleOrder) || invoiceNumber.replace(/^INV-/, "");
+  return {
+    kind: "manual",
+    invoiceNumber,
+    invoiceDate: invoice.date ? formatInvoiceDate(invoice.date) : formatInvoiceDate(new Date()),
+    saleOrder,
+    reference: clean(invoice.reference) || invoiceNumber,
+    company,
+    jurisdiction,
+    terms,
+    paymentTerms: "Immediate Payment",
+    reverseCharge: "No",
+    payment: {
+      method: clean(payment.methodLabel) || clean(payment.method) || "Cash",
+      status: (clean(payment.status) || "PAID").toUpperCase(),
+    },
+    customer: bill,
+    shipping: ship,
+    lines,
+    gstRate: taxRate,
+    qtyTotal,
+    subtotal,
+    discount: round2(orderDiscount),
+    taxTotal,
+    grandTotal,
+    amountWords: amountInWords(grandTotal),
+  };
+};
+
 /* ===================== PDF RENDERING ===================== */
 
 const ORANGE = "#EA580C";
@@ -737,6 +869,7 @@ module.exports = {
   getInvoiceSettings,
   buildOrderInvoiceData,
   buildPrintInvoiceData,
+  buildManualInvoiceData,
   generateInvoicePdf,
   invoiceFileName,
   amountInWords,
