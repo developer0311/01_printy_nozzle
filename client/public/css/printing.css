@@ -3,10 +3,10 @@
    ========================================================================== */
 
 :root {
-  --pr-primary: #1e60d5;
-  --pr-primary-hover: #164eb0;
-  --pr-primary-light: #eff6ff;
-  --pr-primary-border: #bfdbfe;
+  --pr-primary: #FF7508;
+  --pr-primary-hover: #FF7508;
+  --pr-primary-light: #FFF4EA;
+  --pr-primary-border: #FFD9B3;
   --pr-dark: #0f172a;
   --pr-gray-700: #334155;
   --pr-gray-600: #475569;
@@ -435,11 +435,11 @@
 .viewer-demo-badge {
   width: fit-content;
   margin-top: 4px;
-  border: 1px solid #bfdbfe;
+  border: 1px solid #FFD9B3;
   border-radius: 999px;
   padding: 3px 8px;
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: #FFF4EA;
+  color: #D96200;
   font-size: 0.68rem;
   font-weight: 800;
   text-transform: uppercase;
@@ -535,7 +535,7 @@
 
 .material-card.active {
   border-color: var(--pr-primary);
-  background: #f0f7ff;
+  background: #FFF4EA;
   box-shadow: 0 0 0 1px var(--pr-primary);
 }
 
@@ -656,7 +656,7 @@
 
 .infill-card.active {
   border-color: var(--pr-primary);
-  background: #f0f7ff;
+  background: #FFF4EA;
   box-shadow: 0 0 0 1px var(--pr-primary);
 }
 
@@ -744,7 +744,7 @@
 
 .finish-card.active {
   border-color: var(--pr-primary);
-  background: #f0f7ff;
+  background: #FFF4EA;
   box-shadow: 0 0 0 1px var(--pr-primary);
 }
 

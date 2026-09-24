@@ -89,12 +89,12 @@
 }
 
 .pd-thumb-btn:hover {
-  border-color: #93c5fd;
+  border-color: #FFD9B3;
 }
 
 .pd-thumb-btn.active {
   border-color: var(--pn-primary);
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+  box-shadow: 0 0 0 2px rgba(255, 117, 8, 0.15);
 }
 
 .pd-thumb-btn img {
@@ -414,7 +414,7 @@
 }
 
 .btn-pd-add-cart:hover {
-  background: #eff6ff;
+  background: #FFF4EA;
   transform: translateY(-1px);
 }
 
@@ -434,7 +434,7 @@
 .btn-pd-buy-now:hover {
   background: var(--pn-primary-hover);
   border-color: var(--pn-primary-hover);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 4px 12px rgba(255, 117, 8, 0.25);
   transform: translateY(-1px);
 }
 
@@ -686,8 +686,8 @@
 
 /* Help Support Card */
 .pd-help-card {
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
+  background: #FFF4EA;
+  border: 1px solid #FFD9B3;
   border-radius: var(--pn-radius-md);
   padding: 1.5rem;
   display: flex;
@@ -987,8 +987,8 @@ section.pd-related-wrapper,
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: #e9eef6;
-  color: #102033;
+  background: #FFF4EA;
+  color: #231507;
   font-size: 15px;
   font-weight: 700;
   display: inline-flex;

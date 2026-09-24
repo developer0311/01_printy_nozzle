@@ -33,6 +33,21 @@ const adminService = {
   getOrders: (params = {}) => api.get("/admin/orders", { params }),
   getOrderDetails: (id) => api.get(`/admin/orders/${id}`),
   updateOrderStatus: (id, payload) => api.put(`/admin/orders/${id}/status`, payload),
+  createManualInvoicePdf: async (payload) => {
+    const response = await api.post("/admin/orders/manual-invoices", payload, {
+      responseType: "blob",
+    });
+    return downloadPdf(response, "Invoice-Manual.pdf");
+  },
+  listManualInvoices: (params = {}) => api.get("/admin/orders/manual-invoices", { params }),
+  getManualInvoice: (id) => api.get(`/admin/orders/manual-invoices/${id}`),
+  downloadManualInvoicePdf: async (id) => {
+    const response = await api.get(`/admin/orders/manual-invoices/${id}/pdf`, {
+      responseType: "blob",
+    });
+    return downloadPdf(response, `Invoice-${id}.pdf`);
+  },
+  deleteManualInvoice: (id) => api.delete(`/admin/orders/manual-invoices/${id}`),
   getOrderInvoice: (id) => api.get(`/admin/orders/${id}/invoice`),
   downloadOrderInvoicePdf: async (id) => {
     const response = await api.get(`/admin/orders/${id}/invoice`, {

@@ -26,6 +26,13 @@ try {
   console.warn("⚠️ invoiceSchema preload skipped:", e.message);
 }
 
+// Manual invoice tables for admin offline / phone orders (idempotent)
+try {
+  require("./utils/manualInvoiceSchema");
+} catch (e) {
+  console.warn("⚠️ manualInvoiceSchema preload skipped:", e.message);
+}
+
 // Self-healing DB migration for the coupon announcement-bar column (idempotent)
 try {
   require("./utils/couponSchema");

@@ -37,7 +37,7 @@
 }
 
 .od-breadcrumb-link:hover {
-  color: #2563eb;
+  color: #FF7508;
 }
 
 .od-breadcrumb-sep {
@@ -92,8 +92,8 @@
 .od-header-icon-wrap {
   width: 48px;
   height: 48px;
-  background: #eff6ff;
-  color: #2563eb;
+  background: #FFF4EA;
+  color: #FF7508;
   border-radius: 10px;
   display: flex;
   align-items: center;
@@ -135,8 +135,8 @@
 }
 
 .od-status-badge.shipped {
-  background: #eff6ff;
-  color: #2563eb;
+  background: #FFF4EA;
+  color: #FF7508;
 }
 
 .od-status-badge.processing {
@@ -168,7 +168,7 @@
   left: 10%;
   right: 10%;
   height: 2px;
-  background: #2563eb;
+  background: #FF7508;
   z-index: 1;
 }
 
@@ -186,7 +186,7 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: #2563eb;
+  background: #FF7508;
   color: #ffffff;
   display: flex;
   align-items: center;
@@ -375,7 +375,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #2563eb;
+  color: #FF7508;
   font-size: 13.5px;
   font-weight: 600;
   background: none;
@@ -387,7 +387,7 @@
 }
 
 .od-info-invoice-btn:hover {
-  background-color: #eff6ff;
+  background-color: #FFF4EA;
   text-decoration: none;
 }
 
@@ -411,7 +411,7 @@
 }
 
 .od-address-icon {
-  color: #2563eb;
+  color: #FF7508;
   flex-shrink: 0;
 }
 
@@ -519,7 +519,7 @@
 .od-total-amount {
   font-size: 20px;
   font-weight: 800;
-  color: #2563eb;
+  color: #FF7508;
 }
 
 /* Action Cards */
@@ -536,7 +536,7 @@
 }
 
 .od-action-icon {
-  color: #2563eb;
+  color: #FF7508;
   flex-shrink: 0;
   margin-top: 1px;
 }
@@ -562,9 +562,9 @@
 .od-action-btn-outline {
   width: 100%;
   height: 40px;
-  border: 1.5px solid #2563eb;
+  border: 1.5px solid #FF7508;
   background: #ffffff;
-  color: #2563eb;
+  color: #FF7508;
   font-size: 13.5px;
   font-weight: 600;
   border-radius: 8px;
@@ -578,17 +578,17 @@
 }
 
 .od-action-btn-outline:hover {
-  background: #eff6ff;
-  color: #1d4ed8;
-  border-color: #1d4ed8;
+  background: #FFF4EA;
+  color: #D96200;
+  border-color: #D96200;
 }
 
 /* Promo Card with 3D Vase */
 
 .od-promo-card {
-  background-color: #f0f7ff;
-  background-image: linear-gradient(135deg, #f0f7ff 0%, #e6f0fa 100%);
-  border: 1px solid #dbeafe;
+  background-color: #FFF4EA;
+  background-image: linear-gradient(135deg, #FFF4EA 0%, #FFF4EA 100%);
+  border: 1px solid #FFD9B3;
   border-radius: 12px;
   padding: 20px 16px 20px 22px;
   display: flex;
@@ -613,7 +613,7 @@
 }
 
 .od-promo-icon {
-  color: #2563eb;
+  color: #FF7508;
   flex-shrink: 0;
 }
 
@@ -635,7 +635,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #2563eb;
+  background: #FF7508;
   color: #ffffff;
   font-size: 13px;
   font-weight: 600;
@@ -647,7 +647,7 @@
 }
 
 .od-promo-btn:hover {
-  background: #1d4ed8;
+  background: #D96200;
   color: #ffffff;
 }
 
@@ -665,7 +665,7 @@
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  filter: drop-shadow(0 4px 12px rgba(37, 99, 235, 0.18));
+  filter: drop-shadow(0 4px 12px rgba(255, 117, 8, 0.18));
 }
 
 /* ==================== RESPONSIVE ==================== */

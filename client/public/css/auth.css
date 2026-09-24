@@ -6,7 +6,7 @@
   background:
     linear-gradient(120deg, rgba(3, 43, 115, 0.94), rgba(10, 86, 166, 0.84)),
     url("/images/products/25.png") center/cover;
-  color: #102033;
+  color: #231507;
 }
 
 .auth-shell {
@@ -100,7 +100,7 @@
   display: grid;
   align-items: center;
   padding: 34px;
-  background: #f7faff;
+  background: #FFF4EA;
 }
 
 .auth-card {
@@ -111,7 +111,7 @@
 
 .auth-card h3 {
   margin: 0;
-  color: #081d3a;
+  color: #231507;
   font-size: 2rem;
   font-weight: 900;
   letter-spacing: 0;
@@ -151,12 +151,12 @@
 }
 
 .auth-input:focus-within {
-  border-color: #0b6bdc;
+  border-color: #FF7508;
   box-shadow: 0 0 0 3px rgba(11, 107, 220, 0.12);
 }
 
 .auth-icon {
-  color: #0b6bdc;
+  color: #FF7508;
   font-size: 1.15rem;
 }
 
@@ -165,7 +165,7 @@
   min-width: 0;
   border: 0;
   outline: none;
-  color: #102033;
+  color: #231507;
   background: transparent;
   font: inherit;
 }
@@ -183,8 +183,8 @@
   flex: 0 0 34px;
   border: 0;
   border-radius: 8px;
-  background: #eef5ff;
-  color: #0b6bdc;
+  background: #FFF4EA;
+  color: #FF7508;
 }
 
 .auth-submit {
@@ -192,7 +192,7 @@
   margin-top: 6px;
   border: 0 !important;
   border-radius: 8px !important;
-  color: #102033 !important;
+  color: #231507 !important;
   background: #ffb21f !important;
   font-weight: 900 !important;
 }
@@ -216,7 +216,7 @@
 }
 
 .auth-footer a {
-  color: #0b6bdc;
+  color: #FF7508;
   font-weight: 900;
   text-decoration: none;
 }
@@ -255,7 +255,7 @@
     min-height: auto;
     gap: 26px;
     padding: 24px 18px;
-    background: linear-gradient(155deg, #032b73, #0a56a6);
+    background: linear-gradient(155deg, #4A2400, #FF7508);
   }
 
   .auth-brand-panel h1 {

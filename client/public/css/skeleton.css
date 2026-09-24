@@ -15,7 +15,7 @@
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(37, 99, 235, 0.09),
+    rgba(255, 117, 8, 0.09),
     transparent
   );
   animation: skeleton-shimmer 1.3s infinite;

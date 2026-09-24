@@ -9,9 +9,9 @@
   --ord-card-bg: #ffffff;
   --ord-border-color: #e2e8f0;
   --ord-border-hover: #cbd5e1;
-  --ord-primary: #2563eb;
-  --ord-primary-hover: #1d4ed8;
-  --ord-primary-light: #eff6ff;
+  --ord-primary: #FF7508;
+  --ord-primary-hover: #D96200;
+  --ord-primary-light: #FFF4EA;
   --ord-text-dark: #0f172a;
   --ord-text-sub: #475569;
   --ord-text-muted: #64748b;
@@ -90,7 +90,7 @@
   width: 52px;
   height: 52px;
   border-radius: 50%;
-  background: #4f80f7;
+  background: #FF7508;
   color: #ffffff;
   font-size: 1.15rem;
   font-weight: 700;
@@ -129,14 +129,14 @@
 .orders-edit-profile-link {
   font-size: 0.8rem;
   font-weight: 500;
-  color: #3b82f6;
+  color: #FF7508;
   text-decoration: none;
   display: inline-block;
   transition: color 0.15s ease;
 }
 
 .orders-edit-profile-link:hover {
-  color: #1d4ed8;
+  color: #D96200;
   text-decoration: underline;
 }
 
@@ -180,8 +180,8 @@
 
 /* Active State with light blue pill and left blue indicator */
 .orders-nav-link.active {
-  background: #eff6ff;
-  color: #2563eb;
+  background: #FFF4EA;
+  color: #FF7508;
   font-weight: 600;
 }
 
@@ -192,7 +192,7 @@
   top: 3px;
   bottom: 3px;
   width: 3.5px;
-  background: #2563eb;
+  background: #FF7508;
   border-radius: 0 4px 4px 0;
 }
 
@@ -308,8 +308,8 @@
 }
 
 .orders-search-input:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #FF7508;
+  box-shadow: 0 0 0 3px rgba(255, 117, 8, 0.1);
 }
 
 .orders-search-icon {
@@ -366,8 +366,8 @@
 }
 
 .orders-time-select:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #FF7508;
+  box-shadow: 0 0 0 3px rgba(255, 117, 8, 0.1);
 }
 
 .orders-select-chevron {
@@ -414,7 +414,7 @@
 }
 
 .orders-tab-btn.active {
-  color: #2563eb;
+  color: #FF7508;
   font-weight: 600;
 }
 
@@ -425,7 +425,7 @@
   left: 0;
   right: 0;
   height: 2.5px;
-  background: #2563eb;
+  background: #FF7508;
   border-radius: 2px 2px 0 0;
 }
 
@@ -615,15 +615,15 @@
 
 .order-status-badge.in-production,
 .order-status-badge.processing {
-  background: #eff6ff;
-  color: #2563eb;
-  border: 1px solid #bfdbfe;
+  background: #FFF4EA;
+  color: #FF7508;
+  border: 1px solid #FFD9B3;
 }
 
 .order-status-badge.shipped {
-  background: #eef2ff;
-  color: #4f46e5;
-  border: 1px solid #c7d2fe;
+  background: #FFF4EA;
+  color: #FF7508;
+  border: 1px solid #FFD9B3;
 }
 
 .order-status-badge.cancelled {
@@ -689,13 +689,13 @@
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
-  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+  box-shadow: 0 2px 4px rgba(255, 117, 8, 0.2);
 }
 
 .order-btn-primary:hover {
   background: var(--ord-primary-hover);
   border-color: var(--ord-primary-hover);
-  box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3);
+  box-shadow: 0 4px 8px rgba(255, 117, 8, 0.3);
 }
 
 .order-btn-cancel {
@@ -777,8 +777,8 @@
 
 /* Need Help Card */
 .orders-help-card {
-  background: #f4f8ff;
-  border: 1px solid #dbeafe;
+  background: #FFF4EA;
+  border: 1px solid #FFD9B3;
   border-radius: 12px;
   padding: 20px 18px;
   box-shadow: none;
@@ -788,8 +788,8 @@
 }
 
 .orders-help-card:hover {
-  border-color: #bfdbfe;
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.08);
+  border-color: #FFD9B3;
+  box-shadow: 0 4px 14px rgba(255, 117, 8, 0.08);
 }
 
 .orders-help-top {
@@ -799,7 +799,7 @@
 }
 
 .orders-help-icon {
-  color: #2563eb;
+  color: #FF7508;
   flex-shrink: 0;
   margin-top: 1px;
 }
@@ -830,10 +830,10 @@
   margin-top: 18px;
   width: 100%;
   padding: 10px 16px;
-  border: 1.5px solid #2563eb;
+  border: 1.5px solid #FF7508;
   border-radius: 8px;
   background: #ffffff;
-  color: #2563eb;
+  color: #FF7508;
   font-size: 0.88rem;
   font-weight: 600;
   text-decoration: none;
@@ -845,9 +845,9 @@
 }
 
 .orders-help-btn:hover {
-  background: #2563eb;
+  background: #FF7508;
   color: #ffffff;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 4px 12px rgba(255, 117, 8, 0.25);
 }
 
 /* Quick Actions Card */
@@ -898,7 +898,7 @@
 }
 
 .orders-quick-item-btn:hover .orders-quick-text {
-  color: #2563eb;
+  color: #FF7508;
 }
 
 .orders-quick-item-btn:hover .orders-quick-icon {
@@ -906,7 +906,7 @@
 }
 
 .orders-quick-icon {
-  color: #2563eb;
+  color: #FF7508;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -963,7 +963,7 @@
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  filter: drop-shadow(0 6px 12px rgba(37, 99, 235, 0.35));
+  filter: drop-shadow(0 6px 12px rgba(255, 117, 8, 0.35));
 }
 
 .orders-promo-content {
@@ -1144,7 +1144,7 @@
   background: var(--ord-primary);
   border-color: var(--ord-primary);
   color: #ffffff;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
+  box-shadow: 0 0 0 4px rgba(255, 117, 8, 0.2);
 }
 
 .tracking-step-content {

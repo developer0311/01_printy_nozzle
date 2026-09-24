@@ -51,7 +51,7 @@
 .contact-hero-subtitle {
   font-size: 24px;
   font-weight: 700;
-  color: #2563eb;
+  color: #FF7508;
   margin: 0 0 16px 0;
   letter-spacing: -0.3px;
 }
@@ -81,8 +81,8 @@
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: #eff6ff;
-  color: #2563eb;
+  background: #FFF4EA;
+  color: #FF7508;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -204,8 +204,8 @@
 }
 
 .contact-input:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  border-color: #FF7508;
+  box-shadow: 0 0 0 3px rgba(255, 117, 8, 0.12);
 }
 
 .contact-input::placeholder {
@@ -228,8 +228,8 @@
 }
 
 .contact-select:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  border-color: #FF7508;
+  box-shadow: 0 0 0 3px rgba(255, 117, 8, 0.12);
 }
 
 .contact-textarea {
@@ -247,8 +247,8 @@
 }
 
 .contact-textarea:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  border-color: #FF7508;
+  box-shadow: 0 0 0 3px rgba(255, 117, 8, 0.12);
 }
 
 .contact-textarea::placeholder {
@@ -261,7 +261,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: #2563eb;
+  background: #FF7508;
   color: #ffffff;
   padding: 12px 26px;
   border-radius: 8px;
@@ -270,13 +270,13 @@
   border: none;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 4px 12px rgba(255, 117, 8, 0.25);
 }
 
 .btn-send-message:hover {
-  background: #1d4ed8;
+  background: #D96200;
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 6px 16px rgba(255, 117, 8, 0.35);
 }
 
 /* Get in Touch List */
@@ -306,8 +306,8 @@
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  background: #eff6ff;
-  color: #2563eb;
+  background: #FFF4EA;
+  color: #FF7508;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -383,16 +383,16 @@
   border-radius: 8px;
   font-size: 12px;
   font-weight: 600;
-  color: #2563eb;
+  color: #FF7508;
   text-decoration: none;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   transition: all 0.2s;
 }
 
 .map-open-link-btn:hover {
-  background: #2563eb;
+  background: #FF7508;
   color: #ffffff;
-  border-color: #2563eb;
+  border-color: #FF7508;
   transform: translateY(-1px);
 }
 
@@ -420,13 +420,13 @@
   width: 36px;
   height: 36px;
   border-radius: 50% 50% 50% 0;
-  background: #2563eb;
+  background: #FF7508;
   color: #ffffff;
   transform: rotate(-45deg);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.4);
+  box-shadow: 0 4px 10px rgba(255, 117, 8, 0.4);
   flex-shrink: 0;
 }
 
@@ -449,7 +449,7 @@
 .map-pin-title {
   font-size: 13px;
   font-weight: 700;
-  color: #2563eb;
+  color: #FF7508;
   margin: 0 0 2px 0;
 }
 
@@ -477,8 +477,8 @@
 
 /* We're Here to Help Banner Card */
 .contact-help-banner-card {
-  background: #f0f7ff;
-  border: 1px solid #dbeafe;
+  background: #FFF4EA;
+  border: 1px solid #FFD9B3;
   border-radius: 14px;
   padding: 24px 28px;
   display: flex;
@@ -527,7 +527,7 @@
 }
 
 .contact-help-check-icon {
-  color: #2563eb;
+  color: #FF7508;
   flex-shrink: 0;
 }
 
@@ -537,7 +537,7 @@
   object-fit: contain;
   flex-shrink: 0;
   z-index: 2;
-  filter: drop-shadow(0 8px 16px rgba(37, 99, 235, 0.15));
+  filter: drop-shadow(0 8px 16px rgba(255, 117, 8, 0.15));
   transition: transform 0.3s ease;
 }
 
@@ -586,8 +586,8 @@
 }
 
 .faq-accordion-item.open {
-  border-color: #bfdbfe;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.05);
+  border-color: #FFD9B3;
+  box-shadow: 0 4px 12px rgba(255, 117, 8, 0.05);
 }
 
 .faq-accordion-header {
@@ -621,7 +621,7 @@
 
 .faq-accordion-item.open .faq-accordion-icon {
   transform: rotate(180deg);
-  color: #2563eb;
+  color: #FF7508;
 }
 
 .faq-accordion-body {
@@ -667,8 +667,8 @@
   width: 44px;
   height: 44px;
   border-radius: 10px;
-  background: #eff6ff;
-  color: #2563eb;
+  background: #FFF4EA;
+  color: #FF7508;
   display: flex;
   align-items: center;
   justify-content: center;

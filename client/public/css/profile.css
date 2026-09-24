@@ -14,7 +14,7 @@
 
 .profile-hero {
   position: relative;
-  background: #e4f0fe url("/images/Profile_page_banner_image.png") right center / cover no-repeat;
+  background: #FFF4EA url("/images/Profile_page_banner_image.png") right center / cover no-repeat;
   min-height: 180px;
   display: flex;
   align-items: center;
@@ -37,7 +37,7 @@
 .profile-hero-text h1 {
   font-size: 2.4rem;
   font-weight: 700;
-  color: #14183e;
+  color: #4A2400;
   margin: 0 0 6px;
   line-height: 1.2;
 }
@@ -69,13 +69,13 @@
   background: #ffffff;
   border-radius: 16px;
   border: 1px solid #e7ebf1;
-  box-shadow: 0 2px 12px rgba(20, 40, 80, 0.05);
+  box-shadow: 0 2px 12px rgba(255, 117, 8, 0.05);
   overflow: hidden;
   transition: box-shadow 0.3s ease;
 }
 
 .profile-card:hover {
-  box-shadow: 0 6px 24px rgba(20, 40, 80, 0.09);
+  box-shadow: 0 6px 24px rgba(255, 117, 8, 0.09);
 }
 
 .profile-card-header {
@@ -97,7 +97,7 @@
 
 .profile-card-title i {
   font-size: 1.25rem;
-  color: #2563eb;
+  color: #FF7508;
 }
 
 .profile-card-body {
@@ -132,7 +132,7 @@
   width: 88px;
   height: 88px;
   border-radius: 50%;
-  background: #4483f6;
+  background: #FF7508;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -158,9 +158,9 @@
   gap: 6px;
   padding: 7px 14px;
   border-radius: 8px;
-  border: 1.5px solid #2563eb;
+  border: 1.5px solid #FF7508;
   background: #ffffff;
-  color: #2563eb;
+  color: #FF7508;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif !important;
   font-size: 0.78rem;
   font-weight: 600;
@@ -170,7 +170,7 @@
 }
 
 .profile-change-photo-btn:hover {
-  background: #eff6ff;
+  background: #FFF4EA;
 }
 
 .profile-change-photo-btn svg {
@@ -264,9 +264,9 @@
 }
 
 .profile-select-wrapper select:focus {
-  border-color: #2563eb;
+  border-color: #FF7508;
   background: #fff;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  box-shadow: 0 0 0 3px rgba(255, 117, 8, 0.1);
 }
 
 .profile-select-chevron {
@@ -276,9 +276,9 @@
 }
 
 .profile-form-group input:focus {
-  border-color: #2563eb;
+  border-color: #FF7508;
   background: #fff;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  box-shadow: 0 0 0 3px rgba(255, 117, 8, 0.1);
 }
 
 .profile-form-group input:disabled,
@@ -301,9 +301,9 @@
   gap: 7px;
   padding: 7px 16px;
   border-radius: 8px;
-  border: 1.5px solid #2563eb;
+  border: 1.5px solid #FF7508;
   background: #ffffff;
-  color: #2563eb;
+  color: #FF7508;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif !important;
   font-size: 0.85rem;
   font-weight: 600;
@@ -312,9 +312,9 @@
 }
 
 .profile-edit-btn:hover {
-  background: #eff6ff;
-  border-color: #1d4ed8;
-  color: #1d4ed8;
+  background: #FFF4EA;
+  border-color: #D96200;
+  color: #D96200;
 }
 
 .profile-edit-btn svg {
@@ -328,7 +328,7 @@
   padding: 8px 18px;
   border-radius: 10px;
   border: none;
-  background: #0759d6;
+  background: #FF7508;
   color: #fff;
   font-size: 0.85rem;
   font-weight: 600;
@@ -337,7 +337,7 @@
 }
 
 .profile-save-btn:hover {
-  background: #0649b5;
+  background: #D96200;
 }
 
 .profile-cancel-btn {
@@ -477,7 +477,7 @@
 }
 
 .profile-pref-icon.pref-icon-blue {
-  color: #2563eb;
+  color: #FF7508;
 }
 
 .profile-pref-icon.pref-icon-dark {
@@ -550,7 +550,7 @@
 }
 
 .profile-toggle input:checked + .profile-toggle-slider {
-  background: #0256d0;
+  background: #FF7508;
 }
 
 .profile-toggle input:checked + .profile-toggle-slider::before {
@@ -587,9 +587,9 @@
   gap: 7px;
   padding: 7px 16px;
   border-radius: 8px;
-  border: 1.5px solid #2563eb;
+  border: 1.5px solid #FF7508;
   background: #ffffff;
-  color: #2563eb;
+  color: #FF7508;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif !important;
   font-size: 0.82rem;
   font-weight: 600;
@@ -598,9 +598,9 @@
 }
 
 .profile-add-address-btn:hover {
-  background: #eff6ff;
-  border-color: #1d4ed8;
-  color: #1d4ed8;
+  background: #FFF4EA;
+  border-color: #D96200;
+  color: #D96200;
 }
 
 .profile-add-address-btn svg {
@@ -645,7 +645,7 @@
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: #eff6ff;
+  background: #FFF4EA;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -663,8 +663,8 @@
   display: inline-flex;
   padding: 2px 10px;
   border-radius: 9999px;
-  background: #dbeafe;
-  color: #2563eb;
+  background: #FFD9B3;
+  color: #FF7508;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif !important;
   font-size: 0.72rem;
   font-weight: 600;
@@ -723,7 +723,7 @@
 }
 
 .profile-address-action-btn.edit-btn {
-  color: #2563eb;
+  color: #FF7508;
   border-right: 1px solid #f1f5f9;
 }
 
@@ -818,7 +818,7 @@
   margin: 0;
   font-size: 1.15rem;
   font-weight: 800;
-  color: #0f1e33;
+  color: #4A2400;
 }
 
 .profile-modal-close {
@@ -826,15 +826,15 @@
   height: 34px;
   border: 0;
   border-radius: 10px;
-  background: #eef4ff;
-  color: #2563eb;
+  background: #FFF4EA;
+  color: #FF7508;
   font-size: 1.3rem;
   line-height: 1;
   cursor: pointer;
 }
 
 .profile-modal-close:hover {
-  background: #2563eb;
+  background: #FF7508;
   color: #ffffff;
 }
 
@@ -858,7 +858,7 @@
   border-radius: 10px;
   padding: 10px 12px;
   font-size: 0.92rem;
-  color: #0f1e33;
+  color: #4A2400;
   background: #ffffff;
   outline: none;
   width: 100%;
@@ -867,8 +867,8 @@
 
 .profile-modal-grid input:focus,
 .profile-modal-grid select:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  border-color: #FF7508;
+  box-shadow: 0 0 0 3px rgba(255, 117, 8, 0.12);
 }
 
 .profile-modal-full {
@@ -891,7 +891,7 @@
 }
 
 .profile-modal-check input {
-  accent-color: #2563eb;
+  accent-color: #FF7508;
 }
 
 .profile-modal-hint {
@@ -985,9 +985,9 @@
   gap: 7px;
   padding: 8px 14px;
   border-radius: 8px;
-  border: 1.5px solid #2563eb;
+  border: 1.5px solid #FF7508;
   background: #ffffff;
-  color: #2563eb;
+  color: #FF7508;
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
@@ -997,9 +997,9 @@
 }
 
 .profile-password-btn:hover {
-  background: #eff6ff;
-  border-color: #1d4ed8;
-  color: #1d4ed8;
+  background: #FFF4EA;
+  border-color: #D96200;
+  color: #D96200;
 }
 
 .profile-password-btn:active {

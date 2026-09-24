@@ -10,9 +10,9 @@
   background:
     linear-gradient(
       135deg,
-      var(--pn-blue-deeper) 0%,
-      var(--pn-blue-deep) 48%,
-      #063f9c 100%
+      #8A4200 0%,
+      #5A2E00 50%,
+      #3A2000 100%
     );
 
   color: var(--pn-white);
@@ -36,7 +36,7 @@
   right: -180px;
   top: -220px;
 
-  background: rgba(7, 89, 214, 0.28);
+  background: rgba(255, 117, 8, 0.16);
 
   border-radius: 50%;
 
@@ -58,7 +58,7 @@
   left: -500px;
   bottom: -420px;
 
-  background: rgba(255, 122, 0, 0.08);
+  background: rgba(255, 122, 0, 0.05);
 
   border-radius: 50%;
 
@@ -155,7 +155,7 @@
 
   margin: 0;
 
-  color: var(--pn-white-soft);
+  color: rgba(255, 255, 255, 0.82);
 
   font-size: 13px;
 
@@ -186,11 +186,11 @@
   align-items: center;
   justify-content: center;
 
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.28);
 
   border-radius: 50%;
 
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.1);
 
   color: var(--pn-white);
 
@@ -238,9 +238,9 @@
 
   font-size: 14px;
 
-  font-weight: 700;
+  font-weight: 800;
 
-  letter-spacing: 0.1px;
+  letter-spacing: 0.3px;
 }
 
 
@@ -277,7 +277,7 @@
 .pn-footer-column a {
   width: fit-content;
 
-  color: rgba(255, 255, 255, 0.68);
+  color: rgba(255, 255, 255, 0.82);
 
   font-size: 12.5px;
 
@@ -304,7 +304,7 @@
 .pn-footer-newsletter p {
   margin: 0 0 18px;
 
-  color: rgba(255, 255, 255, 0.68);
+  color: rgba(255, 255, 255, 0.82);
 
   font-size: 12.5px;
 
@@ -363,7 +363,7 @@
 }
 
 .pn-newsletter-form input::placeholder {
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.55);
 }
 
 
@@ -400,7 +400,7 @@
 
   margin-top: 10px;
 
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.6);
 
   font-size: 10px;
 }
@@ -419,7 +419,7 @@
 
   padding: 19px 0;
 
-  border-top: 1px solid var(--pn-border);
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
 
   display: flex;
 
@@ -433,7 +433,7 @@
 .pn-footer-bottom p {
   margin: 0;
 
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.68);
 
   font-size: 11px;
 }

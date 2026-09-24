@@ -3,10 +3,10 @@
    ========================================================================== */
 
 :root {
-  --pn-primary: #2563eb;
-  --pn-primary-hover: #1d4ed8;
-  --pn-primary-light: #eff6ff;
-  --pn-primary-border: #dbeafe;
+  --pn-primary: #FF7508;
+  --pn-primary-hover: #D96200;
+  --pn-primary-light: #FFF4EA;
+  --pn-primary-border: #FFD9B3;
   --pn-text-dark: #0f172a;
   --pn-text-medium: #334155;
   --pn-text-muted: #64748b;
@@ -159,7 +159,7 @@
 }
 
 .category-item-btn.active {
-  background: #eff6ff;
+  background: #FFF4EA;
   color: var(--pn-primary);
   font-weight: 600;
 }
@@ -310,7 +310,7 @@
   gap: 0.5rem;
   padding: 0.65rem 1rem;
   background: #ffffff;
-  border: 1.5px solid #dbeafe;
+  border: 1.5px solid #FFD9B3;
   color: var(--pn-primary);
   font-size: 0.875rem;
   font-weight: 600;
@@ -320,7 +320,7 @@
 }
 
 .btn-clear-filters:hover {
-  background: #eff6ff;
+  background: #FFF4EA;
   border-color: var(--pn-primary);
 }
 
@@ -427,9 +427,9 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  color: #1d4ed8;
+  background: #FFF4EA;
+  border: 1px solid #FFD9B3;
+  color: #D96200;
   font-size: 0.85rem;
   font-weight: 500;
   padding: 0.25rem 0.75rem;
@@ -500,7 +500,7 @@
 }
 
 .product-badge.bestseller {
-  background-color: #1d4ed8;
+  background-color: #D96200;
   color: #ffffff;
 }
 
@@ -665,7 +665,7 @@
 .btn-add-cart {
   width: 34px;
   height: 34px;
-  border: 1.5px solid #bfdbfe;
+  border: 1.5px solid #FFD9B3;
   background: #ffffff;
   color: var(--pn-primary);
   border-radius: 8px;
@@ -820,7 +820,7 @@
   width: 46px;
   height: 46px;
   border-radius: 12px;
-  background: #eff6ff;
+  background: #FFF4EA;
   color: var(--pn-primary);
   display: flex;
   align-items: center;
@@ -1175,7 +1175,7 @@
 
 .btn-modal-add-cart:hover {
   background: var(--pn-primary-hover);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 4px 12px rgba(255, 117, 8, 0.25);
 }
 
 /* Specifications Table */

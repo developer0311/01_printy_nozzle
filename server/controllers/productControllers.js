@@ -426,10 +426,74 @@ const searchProducts = async (req, res) => {
   }
 };
 
+/* ===================== BEST SELLERS MENU (NAVBAR MEGA MENU) =====================
+   Top 6 best-selling categories with top 6 best-selling products each.
+   Fully automatic — ranked by actual user orders via products.total_sold,
+   which is incremented on every order placement and decremented on cancel. */
+const getBestSellersMenu = async (req, res) => {
+  try {
+    // Top 6 categories by total units sold (fallback to product count so the
+    // menu is never empty on a fresh store with zero orders).
+    const [categories] = await db.query(
+      `SELECT c.id, c.name, c.slug, c.image_url,
+              COALESCE(SUM(p.total_sold), 0) AS units_sold,
+              COUNT(p.id) AS product_count
+       FROM categories c
+       LEFT JOIN products p ON p.category_id = c.id AND p.is_active = 1
+       WHERE c.is_active = 1
+       GROUP BY c.id, c.name, c.slug, c.image_url
+       ORDER BY units_sold DESC, product_count DESC, c.sort_order ASC
+       LIMIT 6`
+    );
+
+    if (categories.length === 0) {
+      return res.status(200).json({ success: true, categories: [] });
+    }
+
+    // Top 6 products per category by units sold (automatic from orders).
+    const categoriesWithProducts = await Promise.all(
+      categories.map(async (cat) => {
+        const [products] = await db.query(
+          `SELECT p.id, p.name, p.slug, p.price, p.compare_price,
+                  p.avg_rating, p.review_count, p.total_sold,
+                  c.name AS category_name, c.slug AS category_slug,
+                  (SELECT image_url FROM product_images WHERE product_id = p.id AND is_primary = 1 LIMIT 1) AS primary_image,
+                  CASE
+                    WHEN p.compare_price > p.price
+                    THEN ROUND(((p.compare_price - p.price) / p.compare_price) * 100)
+                    ELSE 0
+                  END AS discount_percent
+           FROM products p
+           LEFT JOIN categories c ON p.category_id = c.id
+           WHERE p.category_id = ? AND p.is_active = 1
+           ORDER BY p.total_sold DESC, p.avg_rating DESC, p.id DESC
+           LIMIT 6`,
+          [cat.id]
+        );
+        return {
+          id: cat.id,
+          name: cat.name,
+          slug: cat.slug,
+          image_url: cat.image_url,
+          units_sold: Number(cat.units_sold) || 0,
+          product_count: Number(cat.product_count) || 0,
+          products,
+        };
+      })
+    );
+
+    return res.status(200).json({ success: true, categories: categoriesWithProducts });
+  } catch (error) {
+    console.error("Get best sellers menu error:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 module.exports = {
   getAllProducts,
   getProductById,
   checkDeliveryPincode,
   getProductsByCategory,
   searchProducts,
+  getBestSellersMenu,
 };

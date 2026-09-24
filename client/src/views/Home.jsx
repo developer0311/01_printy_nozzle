@@ -452,7 +452,7 @@ export default function Home() {
           </div>
 
           <h1 className="home-hero-title">
-            Build. Create.
+            Print. Build.
             <strong>Innovate.</strong>
           </h1>
 
