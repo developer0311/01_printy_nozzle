@@ -329,15 +329,15 @@ export default function ModelViewer3D({
   }, [color]);
 
   /* =========================================================
-     UPDATE WEIGHT WHEN DENSITY OR INFILL CHANGES
-     (Does not re-parse geometry or cause flickering!)
+     UPDATE WEIGHT WHEN DENSITY CHANGES (solid weight only)
+     Infill scaling is applied once in Printing.jsx / server calculator,
+     so the viewer always reports volume × density (no infill here).
      ========================================================= */
   useEffect(() => {
     if (!baseModelDataRef.current) return;
     const { fileName, fileSizeMB, dimensions, volumeCm3, isSample } = baseModelDataRef.current;
 
-    const effectiveInfillRate = 0.2 + 0.8 * (infillFactor * 0.5);
-    const calculatedWeight = isSample ? 20 : Math.max(2, Math.round(volumeCm3 * density * effectiveInfillRate));
+    const calculatedWeight = isSample ? 20 : Math.max(2, Math.round(volumeCm3 * density));
 
     const updatedStats = {
       fileName,
@@ -348,7 +348,7 @@ export default function ModelViewer3D({
     };
 
     onAnalysisRef.current?.(updatedStats);
-  }, [density, infillFactor]);
+  }, [density]);
 
   /* =========================================================
      LOAD FILE OR SAMPLE ROCKET (Only runs when file/useSample changes)
@@ -410,9 +410,8 @@ export default function ModelViewer3D({
       }
       const volumeCm3 = +(rawVolumeMm3 / 1000).toFixed(1);
 
-      // Weight calculation
-      const effectiveInfillRate = 0.2 + 0.8 * (infillFactorRef.current * 0.5);
-      const calculatedWeight = isSample ? 20 : Math.max(2, Math.round(volumeCm3 * densityRef.current * effectiveInfillRate));
+      // Solid weight = volume × density (infill applied later by pricing engine)
+      const calculatedWeight = isSample ? 20 : Math.max(2, Math.round(volumeCm3 * densityRef.current));
 
       const material = new THREE.MeshStandardMaterial({
         color: new THREE.Color(colorRef.current),

@@ -5,6 +5,7 @@ const {
   getPrintOrderDetails,
   getPrintOrderInvoice,
   updatePrintOrderStatus,
+  verifyQrPayment,
   getAllMaterials,
   createMaterial,
   updateMaterial,
@@ -23,6 +24,7 @@ router.get("/orders", getAllPrintOrders);
 router.get("/orders/:id/invoice", getPrintOrderInvoice);
 router.get("/orders/:id", getPrintOrderDetails);
 router.put("/orders/:id/status", updatePrintOrderStatus);
+router.put("/orders/:id/verify-payment", verifyQrPayment);
 
 // Materials management
 router.get("/materials", getAllMaterials);

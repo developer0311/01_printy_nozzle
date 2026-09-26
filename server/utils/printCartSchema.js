@@ -29,6 +29,29 @@ const CART_PRINT_COLUMNS = [
   ["infill_density", "INT DEFAULT 50"],
   ["surface_finish", "VARCHAR(20) DEFAULT 'standard'"],
   ["estimated_weight", "DECIMAL(10,2) NULL"],
+  ["print_time_hours", "DECIMAL(10,2) NULL"],
+  ["time_cost", "DECIMAL(10,2) DEFAULT 0.00"],
+];
+
+/* Printynozzle selling rate chart (admin editable via site_settings + printing_materials) */
+const PRINT_RATE_SEED = [
+  ["PLA", "pla", "PLA", "Easy to print, eco-friendly and great for everyday use.", 4.5, 1.24, "Prototypes, Decor, Toys", 1],
+  ["PLA+", "pla-plus", "PLA+", "Upgraded PLA with higher toughness for functional prints.", 4.5, 1.24, "Functional prototypes, Toys", 2],
+  ["PLA Matte", "pla-matte", "PLA-MATTE", "Matte surface finish, hides layer lines for display models.", 6.0, 1.24, "Display models, Decor", 3],
+  ["PETG", "petg", "PETG", "Strong, durable and resistant to moisture and chemicals.", 5.5, 1.27, "Functional parts, Enclosures", 4],
+  ["PETG HS", "petg-hs", "PETG-HS", "High-speed PETG tuned for faster printing.", 5.5, 1.27, "Functional parts, Fast prints", 5],
+  ["ASA", "asa", "ASA", "UV-stable and heat resistant for outdoor parts.", 8.0, 1.07, "Outdoor parts, Automotive", 6],
+  ["TPU 95A", "tpu-95a", "TPU-95A", "Flexible, rubber-like material with great durability.", 10.0, 1.21, "Wearables, Gaskets, Flexible parts", 7],
+  ["ABS", "abs", "ABS", "Tough and heat resistant, ideal for functional applications.", 8.0, 1.04, "Mechanical parts, Tools", 8],
+];
+
+const PRINT_SETTINGS_SEED = [
+  ["print_hours_per_gram", "0.15", "number", "Print hours estimated per gram of filament"],
+  ["print_time_slabs", '[{"min":0,"max":5,"rate":50},{"min":5,"max":10,"rate":45},{"min":10,"max":20,"rate":40},{"min":20,"max":null,"rate":35}]', "json", "Hourly printing charge slabs (edited from 3D Printing > Hourly Rates)"],
+  ["print_rate_0_5", "50", "number", "Printing charge ₹/hour for 0-5 hours"],
+  ["print_rate_5_10", "45", "number", "Printing charge ₹/hour for 5-10 hours"],
+  ["print_rate_10_20", "40", "number", "Printing charge ₹/hour for 10-20 hours"],
+  ["print_rate_20_plus", "35", "number", "Printing charge ₹/hour for 20+ hours"],
 ];
 
 let ensurePromise = null;
@@ -76,8 +99,7 @@ const ensurePrintOrdersTable = async (conn) => {
     const [tables] = await conn.query(
       `SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'printing_orders' LIMIT 1`
     );
-    if (tables.length === 0) {
-      await conn.query(`
+    if (tables.length === 0) {      await conn.query(`
         CREATE TABLE IF NOT EXISTS printing_orders (
           id INT AUTO_INCREMENT PRIMARY KEY,
           user_id INT NOT NULL,
@@ -97,7 +119,9 @@ const ensurePrintOrdersTable = async (conn) => {
           surface_finish ENUM('standard', 'smooth') DEFAULT 'standard',
           quantity INT DEFAULT 1,
           estimated_weight DECIMAL(8,2) DEFAULT NULL,
+          print_time_hours DECIMAL(10,2) DEFAULT NULL,
           material_cost DECIMAL(10,2) NOT NULL,
+          time_cost DECIMAL(10,2) DEFAULT 0.00,
           color_cost DECIMAL(10,2) DEFAULT 0.00,
           finish_cost DECIMAL(10,2) DEFAULT 0.00,
           subtotal DECIMAL(10,2) NOT NULL,
@@ -137,9 +161,55 @@ const ensurePrintOrdersTable = async (conn) => {
       }
       // Migrate any existing pending rows to confirmed
       await conn.query(`UPDATE printing_orders SET status = 'confirmed' WHERE status = 'pending'`);
+      // Time-based charge columns (rate chart: Final = material + time)
+      try {
+        if (!(await columnExists(conn, "printing_orders", "print_time_hours"))) {
+          await conn.query("ALTER TABLE `printing_orders` ADD COLUMN `print_time_hours` DECIMAL(10,2) NULL AFTER `estimated_weight`");
+        }
+        if (!(await columnExists(conn, "printing_orders", "time_cost"))) {
+          await conn.query("ALTER TABLE `printing_orders` ADD COLUMN `time_cost` DECIMAL(10,2) DEFAULT 0.00 AFTER `material_cost`");
+        }
+      } catch (e) {
+        if (!warned) console.warn("⚠️ Could not add printing_orders time columns:", e.message);
+      }
     }
   } catch (e) {
     if (!warned) console.warn("⚠️ Could not ensure printing_orders table:", e.message);
+  }
+};
+
+const ensurePrintPricingSeed = async (conn) => {
+  try {
+    const [sTables] = await conn.query(
+      `SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'site_settings' LIMIT 1`
+    );
+    if (sTables.length > 0) {
+      for (const [key, value, type, desc] of PRINT_SETTINGS_SEED) {
+        try {
+          await conn.query(
+            `INSERT INTO site_settings (setting_key, setting_value, setting_type, description) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE setting_value = IF(setting_value IS NULL OR setting_value = '', VALUES(setting_value), setting_value)`,
+            [key, value, type, desc]
+          );
+        } catch {}
+      }
+    }
+    const [mTables] = await conn.query(
+      `SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'printing_materials' LIMIT 1`
+    );
+    if (mTables.length > 0) {
+      for (const [name, slug, code, description, price, density, bestFor, sort] of PRINT_RATE_SEED) {
+        try {
+          await conn.query(
+            `INSERT INTO printing_materials (name, slug, code, description, price_per_gram, density_g_cm3, best_for, sort_order, is_active)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+             ON DUPLICATE KEY UPDATE price_per_gram = VALUES(price_per_gram), density_g_cm3 = VALUES(density_g_cm3), best_for = VALUES(best_for), code = VALUES(code), description = VALUES(description)`,
+            [name, slug, code, description, price, density, bestFor, sort]
+          );
+        } catch {}
+      }
+    }
+  } catch (e) {
+    if (!warned) console.warn("⚠️ Could not seed print pricing:", e.message);
   }
 };
 
@@ -152,6 +222,7 @@ const ensurePrintCartSchema = async () => {
         await ensureTable(conn, "cart_items", true);
         await ensureTable(conn, "order_items", false);
         await ensurePrintOrdersTable(conn);
+        await ensurePrintPricingSeed(conn);
         // Track last login for the admin Users table (old DBs lack the column).
         try {
           if (!(await columnExists(conn, "users", "last_login"))) {

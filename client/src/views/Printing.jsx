@@ -47,7 +47,59 @@ export default function Printing() {
   const [serverMaterials, setServerMaterials] = useState(null);
   const [serverColors, setServerColors] = useState(null);
   const [serverSiteSettings, setServerSiteSettings] = useState(null);
+  const [serverTimeRates, setServerTimeRates] = useState(null);
+  const [serverSlabsRaw, setServerSlabsRaw] = useState(null);
+  const [serverHoursPerGram, setServerHoursPerGram] = useState(null);
   const defaultPricingConfig = defaultPricingData;
+  const parseSlabs = (raw) => {
+    let arr = raw;
+    if (typeof arr === "string") {
+      try {
+        arr = JSON.parse(arr);
+      } catch {
+        return null;
+      }
+    }
+    if (!Array.isArray(arr) || arr.length === 0) return null;
+    const clean = [];
+    for (const s of arr) {
+      const min = Number(s.min);
+      const max = s.max === null || s.max === undefined || s.max === "" ? null : Number(s.max);
+      const rate = Number(s.rate);
+      if (!Number.isFinite(min) || min < 0 || !Number.isFinite(rate) || rate < 0) return null;
+      if (max !== null && (!Number.isFinite(max) || max <= min)) return null;
+      clean.push({ min, max, rate });
+    }
+    clean.sort((a, b) => a.min - b.min);
+    return clean;
+  };
+  const defaultSlabs = parseSlabs(defaultPricingConfig?.timeSlabs) || [
+    { min: 0, max: 5, rate: 50 },
+    { min: 5, max: 10, rate: 45 },
+    { min: 10, max: 20, rate: 40 },
+    { min: 20, max: null, rate: 35 },
+  ];
+  // Hourly slabs: admin Hourly Rates tab (JSON) wins, legacy 4 keys are fallback.
+  const slabs = useMemo(() => {
+    if (serverSlabsRaw) return serverSlabsRaw;
+    if (serverTimeRates && [serverTimeRates.rate_0_5, serverTimeRates.rate_5_10, serverTimeRates.rate_10_20, serverTimeRates.rate_20_plus].every((v) => v !== undefined && v !== null && v !== "")) {
+      return [
+        { min: 0, max: 5, rate: Number(serverTimeRates.rate_0_5) },
+        { min: 5, max: 10, rate: Number(serverTimeRates.rate_5_10) },
+        { min: 10, max: 20, rate: Number(serverTimeRates.rate_10_20) },
+        { min: 20, max: null, rate: Number(serverTimeRates.rate_20_plus) },
+      ];
+    }
+    return defaultSlabs;
+  }, [serverSlabsRaw, serverTimeRates]);
+  const slabLabelFor = (slab) => (slab.max === null ? `${slab.min}+ hours` : `${slab.min}–${slab.max} hours`);
+  const timeRates = {
+    rate_0_5: Number(serverTimeRates?.rate_0_5 ?? defaultPricingConfig?.siteSettings?.timeRates?.rate_0_5 ?? 50),
+    rate_5_10: Number(serverTimeRates?.rate_5_10 ?? defaultPricingConfig?.siteSettings?.timeRates?.rate_5_10 ?? 45),
+    rate_10_20: Number(serverTimeRates?.rate_10_20 ?? defaultPricingConfig?.siteSettings?.timeRates?.rate_10_20 ?? 40),
+    rate_20_plus: Number(serverTimeRates?.rate_20_plus ?? defaultPricingConfig?.siteSettings?.timeRates?.rate_20_plus ?? 35),
+  };
+  const hoursPerGram = Number(serverHoursPerGram ?? defaultPricingConfig?.siteSettings?.hoursPerGram ?? 0.15) || 0.15;
   const pricingConfig = {
     ...defaultPricingConfig,
     siteSettings: {
@@ -152,6 +204,18 @@ export default function Printing() {
           estimatedDeliveryDays: serverConfig.printing_delivery_days || undefined,
           deliveryRegion: serverConfig.printing_delivery_region || undefined,
         });
+        setServerHoursPerGram(
+          serverConfig.print_hours_per_gram !== undefined && serverConfig.print_hours_per_gram !== null && serverConfig.print_hours_per_gram !== ""
+            ? Number(serverConfig.print_hours_per_gram)
+            : null
+        );
+        setServerTimeRates({
+          rate_0_5: serverConfig.print_rate_0_5 !== undefined ? Number(serverConfig.print_rate_0_5) : undefined,
+          rate_5_10: serverConfig.print_rate_5_10 !== undefined ? Number(serverConfig.print_rate_5_10) : undefined,
+          rate_10_20: serverConfig.print_rate_10_20 !== undefined ? Number(serverConfig.print_rate_10_20) : undefined,
+          rate_20_plus: serverConfig.print_rate_20_plus !== undefined ? Number(serverConfig.print_rate_20_plus) : undefined,
+        });
+        setServerSlabsRaw(parseSlabs(serverConfig.print_time_slabs) || null);
 
         const mappedMaterials = (materialsResponse.data.materials || []).map((material) => ({
           id: material.id,
@@ -216,8 +280,17 @@ export default function Printing() {
   // quote matches what is actually charged (server scales base weight).
   const INFILL_MULTIPLIERS = { 10: 0.4, 20: 0.55, 30: 0.7, 50: 1.0, 100: 1.5 };
 
+  const getTimeSlabForHours = (hours) => {
+    const h = Number(hours || 0);
+    const match =
+      slabs.find((s) => h > s.min && (s.max === null || h <= s.max)) ||
+      slabs[slabs.length - 1] ||
+      slabs[0];
+    return { label: slabLabelFor(match), rate: match.rate };
+  };
+
   const getBaseWeight = () =>
-    Math.max(2, Math.round(modelAnalysis?.fileName?.includes("rocket") ? 20 : modelAnalysis?.weightGrams || 20));
+    Math.max(2, Math.round(modelAnalysis?.fileName?.includes("rocket") && useSample ? 20 : modelAnalysis?.weightGrams || 20));
 
   const getInfillMultiplier = (inf) => {
     const key = Number(inf?.id);
@@ -225,26 +298,44 @@ export default function Printing() {
     return inf?.factor || 1.0;
   };
 
+  const quoteForWeight = (effectiveWeight) => {
+    const materialCost = Math.round(effectiveWeight * (selectedMaterial?.pricePerGram || 4.5));
+    const printTimeHours = Math.round(effectiveWeight * hoursPerGram * 100) / 100;
+    const slab = getTimeSlabForHours(printTimeHours);
+    const timeCost = Math.round(printTimeHours * (slab.rate || 0) * 100) / 100;
+    const finishCost = Math.round(effectiveWeight * (selectedFinish?.pricePerGram || 0));
+    return { materialCost, printTimeHours, slab, timeCost, finishCost };
+  };
+
   const getInfillCardPrice = (inf) => {
     const baseWeight = getBaseWeight();
     const weight = Math.max(2, Math.round(baseWeight * getInfillMultiplier(inf)));
-    const matCost = Math.round(weight * (selectedMaterial?.pricePerGram || 12));
-    const finishCost = Math.round(weight * (selectedFinish?.pricePerGram || 0));
-    return matCost + finishCost + (inf.priceAdjustment || 0);
+    const { materialCost, timeCost, finishCost } = quoteForWeight(weight);
+    return materialCost + timeCost + finishCost + (inf.priceAdjustment || 0);
   };
 
   /* =========================================================
-     LIVE PRICE CALCULATION ENGINE
+     LIVE PRICE CALCULATION ENGINE — Final = Material + Time
+     Weight auto-derives from STL volume × material density × infill.
+     Time auto-derives from effective weight × hours-per-gram.
      ========================================================= */
   const calculations = useMemo(() => {
-    const baseWeight = modelAnalysis?.fileName?.includes("rocket") ? 20 : (modelAnalysis?.weightGrams || 20);
-    const safeBase = Math.max(2, Math.round(baseWeight));
+    const rawBase = modelAnalysis?.fileName?.includes("rocket") && useSample ? 20 : (modelAnalysis?.weightGrams || 20);
+    const safeBase = Math.max(2, Math.round(rawBase));
     const key = Number(selectedInfill?.id);
     const multiplier = INFILL_MULTIPLIERS[key] !== undefined ? INFILL_MULTIPLIERS[key] : selectedInfill?.factor || 1.0;
     const weight = Math.max(2, Math.round(safeBase * multiplier));
 
-    // Material cost = weight * pricePerGram
-    const materialCost = Math.round(weight * (selectedMaterial?.pricePerGram || 12));
+    // Material charge = weight × selling rate (₹/g)
+    const materialCost = Math.round(weight * (selectedMaterial?.pricePerGram || 4.5));
+
+    // Estimated print time from file + material (weight already embeds both)
+    const printTimeHours = Math.round(weight * hoursPerGram * 100) / 100;
+    const slab = getTimeSlabForHours(printTimeHours);
+    const timeRate = slab.rate || 0;
+
+    // Printing-time charge = time × slab rate
+    const timeCost = Math.round(printTimeHours * timeRate * 100) / 100;
 
     // Color adjustment (usually 0)
     const colorCost = selectedColor?.priceAdjustment || 0;
@@ -255,8 +346,8 @@ export default function Printing() {
     // Surface finish cost = weight * finishPricePerGram
     const finishCost = Math.round(weight * (selectedFinish?.pricePerGram || 0));
 
-    // Unit subtotal
-    const unitPrice = materialCost + colorCost + infillCost + finishCost;
+    // Unit subtotal — Final price = Material charge + Printing-time charge (+ extras)
+    const unitPrice = materialCost + timeCost + colorCost + infillCost + finishCost;
 
     // Total subtotal for quantity
     const subtotal = unitPrice * quantity;
@@ -272,6 +363,10 @@ export default function Printing() {
       baseWeight: safeBase,
       weight,
       materialCost,
+      printTimeHours,
+      timeRate,
+      timeRateLabel: slab.label,
+      timeCost,
       colorCost,
       infillCost,
       finishCost,
@@ -280,7 +375,7 @@ export default function Printing() {
       gstAmount,
       grandTotal,
     };
-  }, [modelAnalysis, selectedMaterial, selectedColor, selectedInfill, selectedFinish, quantity, pricingConfig]);
+  }, [modelAnalysis, useSample, selectedMaterial, selectedColor, selectedInfill, selectedFinish, quantity, pricingConfig, hoursPerGram, slabs]);
 
   const hasUploadedModel = Boolean(uploadedFile && !useSample);
   const summaryModel = hasUploadedModel
@@ -295,6 +390,10 @@ export default function Printing() {
         baseWeight: 0,
         weight: 0,
         materialCost: 0,
+        printTimeHours: 0,
+        timeRate: 0,
+        timeRateLabel: "0–5 hours",
+        timeCost: 0,
         colorCost: 0,
         infillCost: 0,
         finishCost: 0,
@@ -852,6 +951,23 @@ export default function Printing() {
                     </div>
                   </div>
                 </div>
+                {/* Auto estimate note — weight & time from STL + material */}
+                <div className="summary-delivery-box" style={{ marginTop: 12 }}>
+                  <Info size={20} className="summary-delivery-icon" />
+                  <div className="summary-delivery-text">
+                    <span className="summary-delivery-label">Auto estimate from your STL</span>
+                    <span className="summary-delivery-time">
+                      {hasUploadedModel ? (
+                        <>Weight {calculations.weight}g • Time {Number(calculations.printTimeHours || 0).toFixed(2)}h ({calculations.timeRateLabel} @ ₹{calculations.timeRate}/h) • Final = Material ₹{calculations.materialCost} + Time ₹{calculations.timeCost}</>
+                      ) : (
+                        <>Upload an STL to auto-calculate weight, print time and final price.</>
+                      )}
+                    </span>
+                    <span className="summary-delivery-time" style={{ marginTop: 4 }}>
+                      Time slabs: {slabs.map((s) => `${slabLabelFor(s)} ₹${s.rate}/h`).join(" • ")}
+                    </span>
+                  </div>
+                </div>
 
               </div>
             </div>
@@ -892,13 +1008,21 @@ export default function Printing() {
                   </div>
                 </div>
 
-                {/* Breakdown Items */}
+                {/* Breakdown Items — Final price = Material charge + Printing-time charge */}
                 <div className="summary-breakdown">
                   <div className="breakdown-row">
-                    <span className="breakdown-label">Material ({selectedMaterial.name})</span>
+                    <span className="breakdown-label">Material ({selectedMaterial.name} • ₹{selectedMaterial.pricePerGram}/g)</span>
                     <div className="breakdown-value-group">
                       <span className="breakdown-weight">{summaryCalculations.weight}g</span>
                       <span className="breakdown-price">₹{summaryCalculations.materialCost}</span>
+                    </div>
+                  </div>
+
+                  <div className="breakdown-row">
+                    <span className="breakdown-label">Printing time ({summaryCalculations.timeRateLabel} • ₹{summaryCalculations.timeRate}/h)</span>
+                    <div className="breakdown-value-group">
+                      <span className="breakdown-weight">{Number(summaryCalculations.printTimeHours || 0).toFixed(2)}h</span>
+                      <span className="breakdown-price">₹{summaryCalculations.timeCost}</span>
                     </div>
                   </div>
 

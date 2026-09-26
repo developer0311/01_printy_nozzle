@@ -3,6 +3,7 @@ const router = express.Router();
 const {
   getSiteSettings,
   updateSiteSettings,
+  uploadQrImage,
   getAllHeroBanners,
   createHeroBanner,
   updateHeroBanner,
@@ -16,6 +17,7 @@ router.use(protect, authorizeRoles("admin"));
 // Settings
 router.get("/", getSiteSettings);
 router.put("/", updateSiteSettings);
+router.post("/qr-image", productImageUpload.single("image"), uploadQrImage);
 
 // Hero banners
 router.get("/banners", getAllHeroBanners);

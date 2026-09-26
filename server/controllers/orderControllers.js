@@ -1,6 +1,7 @@
 const db = require("../config/db");
 const { calculateCouponTotals, round2 } = require("../utils/couponHelper");
 const { ensurePrintCartSchema } = require("../utils/printCartSchema");
+const { ensureQrPaymentSchema } = require("../utils/qrPaymentSchema");
 const { calculatePrintPrice } = require("../utils/priceCalculator");
 const { triggerAutoShipment } = require("../utils/shippingSync");
 const { mailOrderInvoiceById, mailPrintInvoiceByIds } = require("../utils/mailer");
@@ -542,7 +543,7 @@ const createOrder = async (req, res) => {
   /* Insert one 3D-print cart item into printing_orders and return its id/number/total.
      Used for print-only checkouts (no `orders` row) and to mirror prints
      inside mixed checkouts (the `orders` row still carries products). */
-  const insertPrintingOrderRow = async ({ item, ship, payment_method, payment_status, gstRate, smoothPerGram, notes }) => {
+  const insertPrintingOrderRow = async ({ item, ship, payment_method, payment_status, gstRate, smoothPerGram, notes, paymentScreenshotUrl }) => {
     if (!item.material_id) {
       console.error("⛔ Printing order aborted: material_id is missing for print cart item", {
         cart_item_id: item.id,
@@ -573,56 +574,124 @@ const createOrder = async (req, res) => {
       colorAdjustment: colorAdj,
       quantity: parseInt(item.quantity) || 1,
       gstRate,
+      hoursPerGram: parseFloat(configMap.print_hours_per_gram) || 0.15,
+      timeSlabs: configMap.print_time_slabs || undefined,
+      timeRates: {
+        rate_0_5: parseFloat(configMap.print_rate_0_5) || 50,
+        rate_5_10: parseFloat(configMap.print_rate_5_10) || 45,
+        rate_10_20: parseFloat(configMap.print_rate_10_20) || 40,
+        rate_20_plus: parseFloat(configMap.print_rate_20_plus) || 35,
+      },
     });
     const printOrderNumber =
       "3D" + Date.now().toString(36).toUpperCase() + crypto.randomBytes(2).toString("hex").toUpperCase();
-    const [insertRes] = await connection.query(
-      `INSERT INTO printing_orders (
-        user_id, order_number, status,
-        file_name, file_url, file_public_id, file_size,
-        dimension_x, dimension_y, dimension_z,
-        material_id, color_id, custom_color_hex,
-        infill_density, surface_finish, quantity,
-        estimated_weight, material_cost, color_cost, finish_cost,
-        subtotal, tax_amount, total_amount,
-        shipping_name, shipping_phone, shipping_address1,
-        shipping_city, shipping_state, shipping_pincode,
-        payment_method, payment_status, notes
-      ) VALUES (?, ?, 'confirmed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        req.user.id,
-        printOrderNumber,
-        item.file_name || "model.stl",
-        item.file_url || "",
-        item.file_public_id || null,
-        item.file_size || null,
-        item.dimension_x || null,
-        item.dimension_y || null,
-        item.dimension_z || null,
-        item.material_id,
-        item.color_id || null,
-        item.custom_color_hex || null,
-        parseInt(item.infill_density) || 50,
-        item.surface_finish || "standard",
-        parseInt(item.quantity) || 1,
-        breakdown.effectiveWeight,
-        breakdown.materialCost,
-        breakdown.colorCost,
-        breakdown.finishCost,
-        breakdown.subtotal,
-        breakdown.taxAmount,
-        breakdown.totalAmount,
-        ship.name,
-        ship.phone,
-        ship.address1,
-        ship.city,
-        ship.state,
-        ship.pin,
-        payment_method,
-        payment_status,
-        notes,
-      ]
-    );
+    const printRow = [
+      req.user.id,
+      printOrderNumber,
+      item.file_name || "model.stl",
+      item.file_url || "",
+      item.file_public_id || null,
+      item.file_size || null,
+      item.dimension_x || null,
+      item.dimension_y || null,
+      item.dimension_z || null,
+      item.material_id,
+      item.color_id || null,
+      item.custom_color_hex || null,
+      parseInt(item.infill_density) || 50,
+      item.surface_finish || "standard",
+      parseInt(item.quantity) || 1,
+      breakdown.effectiveWeight,
+      breakdown.printTimeHours ?? null,
+      breakdown.materialCost,
+      breakdown.timeCost ?? 0,
+      breakdown.colorCost,
+      breakdown.finishCost,
+      breakdown.subtotal,
+      breakdown.taxAmount,
+      breakdown.totalAmount,
+      ship.name,
+      ship.phone,
+      ship.address1,
+      ship.city,
+      ship.state,
+      ship.pin,
+      payment_method,
+      payment_status,
+      paymentScreenshotUrl || null,
+      notes,
+    ];
+    let insertRes;
+    try {
+      [insertRes] = await connection.query(
+        `INSERT INTO printing_orders (
+          user_id, order_number, status,
+          file_name, file_url, file_public_id, file_size,
+          dimension_x, dimension_y, dimension_z,
+          material_id, color_id, custom_color_hex,
+          infill_density, surface_finish, quantity,
+          estimated_weight, print_time_hours, material_cost, time_cost, color_cost, finish_cost,
+          subtotal, tax_amount, total_amount,
+          shipping_name, shipping_phone, shipping_address1,
+          shipping_city, shipping_state, shipping_pincode,
+          payment_method, payment_status, payment_screenshot_url, notes
+        ) VALUES (?, ?, 'confirmed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        printRow
+      );
+    } catch (e) {
+      if (e && (e.code === "ER_BAD_FIELD_ERROR" || /Unknown column/i.test(e.message || ""))) {
+        // Legacy DB without the time/screenshot columns.
+        [insertRes] = await connection.query(
+          `INSERT INTO printing_orders (
+            user_id, order_number, status,
+            file_name, file_url, file_public_id, file_size,
+            dimension_x, dimension_y, dimension_z,
+            material_id, color_id, custom_color_hex,
+            infill_density, surface_finish, quantity,
+            estimated_weight, material_cost, color_cost, finish_cost,
+            subtotal, tax_amount, total_amount,
+            shipping_name, shipping_phone, shipping_address1,
+            shipping_city, shipping_state, shipping_pincode,
+            payment_method, payment_status, notes
+          ) VALUES (?, ?, 'confirmed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            req.user.id,
+            printOrderNumber,
+            item.file_name || "model.stl",
+            item.file_url || "",
+            item.file_public_id || null,
+            item.file_size || null,
+            item.dimension_x || null,
+            item.dimension_y || null,
+            item.dimension_z || null,
+            item.material_id,
+            item.color_id || null,
+            item.custom_color_hex || null,
+            parseInt(item.infill_density) || 50,
+            item.surface_finish || "standard",
+            parseInt(item.quantity) || 1,
+            breakdown.effectiveWeight,
+            breakdown.materialCost,
+            breakdown.colorCost,
+            breakdown.finishCost,
+            breakdown.subtotal,
+            breakdown.taxAmount,
+            breakdown.totalAmount,
+            ship.name,
+            ship.phone,
+            ship.address1,
+            ship.city,
+            ship.state,
+            ship.pin,
+            payment_method,
+            payment_status,
+            notes,
+          ]
+        );
+      } else {
+        throw e;
+      }
+    }
     console.log(`✅ Print item stored in printing_orders: ${printOrderNumber}`);
     return {
       id: insertRes.insertId,
@@ -648,6 +717,7 @@ const createOrder = async (req, res) => {
       shipping_country,
       delivery_option = "standard",
       payment_method = "cod",
+      payment_screenshot_url,
       notes,
     } = req.body;
 
@@ -663,6 +733,13 @@ const createOrder = async (req, res) => {
     }
 
     await ensurePrintCartSchema().catch(() => {});
+    await ensureQrPaymentSchema().catch(() => {});
+
+    // "Pay with QR" is only accepted with the UPI payment screenshot attached.
+    if (payment_method === "qr" && !String(payment_screenshot_url || "").trim()) {
+      await connection.rollback();
+      return res.status(400).json({ success: false, message: "Please attach your payment screenshot to place a QR order" });
+    }
 
     let cartItems;
     try {
@@ -739,7 +816,7 @@ const createOrder = async (req, res) => {
 
     // Settings first (needed for GST-aware coupon)
     const [settings] = await connection.query(
-      "SELECT setting_key, setting_value FROM site_settings WHERE setting_key IN ('free_shipping_threshold', 'standard_shipping_cost', 'express_shipping_cost', 'gst_rate', 'smooth_finish_per_gram')"
+      "SELECT setting_key, setting_value FROM site_settings WHERE setting_key IN ('free_shipping_threshold', 'standard_shipping_cost', 'express_shipping_cost', 'gst_rate', 'smooth_finish_per_gram', 'print_hours_per_gram', 'print_time_slabs', 'print_rate_0_5', 'print_rate_5_10', 'print_rate_10_20', 'print_rate_20_plus')"
     );
     const configMap = {};
     settings.forEach((s) => (configMap[s.setting_key] = s.setting_value));
@@ -835,6 +912,7 @@ const createOrder = async (req, res) => {
             gstRate,
             smoothPerGram,
             notes: notes || "Placed via store checkout",
+            paymentScreenshotUrl: payment_screenshot_url || null,
           })
         );
       }
@@ -850,6 +928,14 @@ const createOrder = async (req, res) => {
       if (payment_method === "cod") {
         created.forEach((r) => triggerAutoShipment("print", r.id));
         // GST invoice email for the 3D-print purchase.
+        mailPrintInvoiceByIds(
+          created.map((r) => r.id),
+          { shippingCost, deliveryOption: effectiveDelivery, template: "cod" }
+        ).catch(() => {});
+      }
+      // QR orders: payment screenshot attached → order placed + GST invoice
+      // emailed immediately (same as COD); shipment starts after admin verifies.
+      if (payment_method === "qr") {
         mailPrintInvoiceByIds(
           created.map((r) => r.id),
           { shippingCost, deliveryOption: effectiveDelivery, template: "cod" }
@@ -875,54 +961,79 @@ const createOrder = async (req, res) => {
       net_banking: "Online Payment (Razorpay)",
       wallet: "Online Payment (Razorpay)",
       cod: "Cash on Delivery",
+      qr: "QR / UPI (Screenshot)",
     };
 
-    // Insert Order
-    const [orderResult] = await connection.query(
-      `INSERT INTO orders 
-       (user_id, order_number, status, shipping_name, shipping_phone, shipping_email,
-        shipping_address1, shipping_address2, shipping_city, shipping_state, shipping_pincode, shipping_country,
-        billing_name, billing_phone, billing_address1, billing_address2, billing_city, billing_state, billing_pincode, billing_country,
-        delivery_option, shipping_cost, payment_method, payment_method_label, payment_status,
-        subtotal, discount, tax_amount, total_amount, coupon_id, coupon_code, notes)
-       VALUES (?, ?, 'confirmed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        userId,
-        orderNumber,
-        shipName,
-        shipPhone,
-        shipEmail,
-        shipAdd1,
-        shipAdd2,
-        shipCity,
-        shipState,
-        shipPin,
-        shipCountry,
-        shipName,
-        shipPhone,
-        shipAdd1,
-        shipAdd2,
-        shipCity,
-        shipState,
-        shipPin,
-        shipCountry,
-        effectiveDelivery,
-        shippingCost,
-        payment_method,
-        methodLabels[payment_method] || "Online Payment (Razorpay)",
-        // Every new order starts "pending". Razorpay orders flip to "paid"
-        // in verify-payment; this keeps the order visible under My Orders
-        // even if the customer closes the gateway without paying.
-        "pending",
-        subtotal.toFixed(2),
-        discount.toFixed(2),
-        taxAmount.toFixed(2),
-        totalAmount.toFixed(2),
-        couponId,
-        couponCode,
-        notes || null,
-      ]
-    );
+    // Insert Order (payment_screenshot_url stored for QR orders)
+    const orderRow = [
+      userId,
+      orderNumber,
+      shipName,
+      shipPhone,
+      shipEmail,
+      shipAdd1,
+      shipAdd2,
+      shipCity,
+      shipState,
+      shipPin,
+      shipCountry,
+      shipName,
+      shipPhone,
+      shipAdd1,
+      shipAdd2,
+      shipCity,
+      shipState,
+      shipPin,
+      shipCountry,
+      effectiveDelivery,
+      shippingCost,
+      payment_method,
+      methodLabels[payment_method] || "Online Payment (Razorpay)",
+      // Every new order starts "pending". Razorpay orders flip to "paid"
+      // in verify-payment; QR orders flip to "paid" when the admin verifies
+      // the screenshot. This keeps the order visible under My Orders
+      // even if the customer closes the gateway without paying.
+      "pending",
+      payment_screenshot_url || null,
+      subtotal.toFixed(2),
+      discount.toFixed(2),
+      taxAmount.toFixed(2),
+      totalAmount.toFixed(2),
+      couponId,
+      couponCode,
+      notes || null,
+    ];
+    let orderResult;
+    try {
+      [orderResult] = await connection.query(
+        `INSERT INTO orders
+         (user_id, order_number, status, shipping_name, shipping_phone, shipping_email,
+          shipping_address1, shipping_address2, shipping_city, shipping_state, shipping_pincode, shipping_country,
+          billing_name, billing_phone, billing_address1, billing_address2, billing_city, billing_state, billing_pincode, billing_country,
+          delivery_option, shipping_cost, payment_method, payment_method_label, payment_status, payment_screenshot_url,
+          subtotal, discount, tax_amount, total_amount, coupon_id, coupon_code, notes)
+         VALUES (?, ?, 'confirmed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        orderRow
+      );
+    } catch (e) {
+      if (e && (e.code === "ER_BAD_FIELD_ERROR" || /Unknown column/i.test(e.message || ""))) {
+        // Legacy DB without payment_screenshot_url.
+        const legacyRow = [...orderRow];
+        legacyRow.splice(24, 1);
+        [orderResult] = await connection.query(
+          `INSERT INTO orders
+           (user_id, order_number, status, shipping_name, shipping_phone, shipping_email,
+            shipping_address1, shipping_address2, shipping_city, shipping_state, shipping_pincode, shipping_country,
+            billing_name, billing_phone, billing_address1, billing_address2, billing_city, billing_state, billing_pincode, billing_country,
+            delivery_option, shipping_cost, payment_method, payment_method_label, payment_status,
+            subtotal, discount, tax_amount, total_amount, coupon_id, coupon_code, notes)
+           VALUES (?, ?, 'confirmed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          legacyRow
+        );
+      } else {
+        throw e;
+      }
+    }
 
     const orderId = orderResult.insertId;
 
@@ -1028,10 +1139,11 @@ const createOrder = async (req, res) => {
             item,
             ship,
             payment_method,
-            payment_status: payment_method === "cod" ? "pending" : "paid",
+            payment_status: ["cod", "qr"].includes(payment_method) ? "pending" : "paid",
             gstRate,
             smoothPerGram,
             notes: `Part of e-commerce order ${orderNumber}`,
+            paymentScreenshotUrl: payment_screenshot_url || null,
           });
         } catch (printMirrorErr) {
           console.error("⛔ Failed to mirror print item to printing_orders:", printMirrorErr.message, {
@@ -1082,6 +1194,12 @@ const createOrder = async (req, res) => {
     if (payment_method === "cod") {
       triggerAutoShipment("order", orderId);
       // GST invoice email for the purchase (products and/or 3D prints).
+      mailOrderInvoiceById(orderId, { template: "cod" }).catch(() => {});
+    }
+
+    // QR orders: screenshot attached → order placed + GST invoice emailed
+    // immediately (same as COD); shipment starts after admin verifies payment.
+    if (payment_method === "qr") {
       mailOrderInvoiceById(orderId, { template: "cod" }).catch(() => {});
     }
 

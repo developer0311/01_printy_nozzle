@@ -143,9 +143,37 @@ const deleteHeroBanner = async (req, res) => {
   }
 };
 
+/* ===================== QR IMAGE UPLOAD (ADMIN) =====================
+ * POST /api/admin/settings/qr-image (multipart, field "image")
+ * Uploads the merchant UPI QR code and stores its URL in site_settings. */
+const uploadQrImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "QR image is required" });
+    }
+
+    const uploadRes = await uploadFile(req.file, "printynozzle/settings", "image");
+
+    await db.query(
+      "INSERT INTO site_settings (setting_key, setting_value, setting_type, description) VALUES ('qr_image_url', ?, 'string', 'Merchant QR code image URL (uploaded from Admin Settings)') ON DUPLICATE KEY UPDATE setting_value = ?",
+      [uploadRes.secure_url, uploadRes.secure_url]
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "QR code updated",
+      data: { image_url: uploadRes.secure_url },
+    });
+  } catch (error) {
+    console.error("Admin uploadQrImage error:", error);
+    return res.status(500).json({ success: false, message: "QR upload failed" });
+  }
+};
+
 module.exports = {
   getSiteSettings,
   updateSiteSettings,
+  uploadQrImage,
   getAllHeroBanners,
   createHeroBanner,
   updateHeroBanner,

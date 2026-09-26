@@ -73,6 +73,28 @@ const money = (value) =>
     maximumFractionDigits: 2,
   })}`;
 
+/* Download a remote image (payment screenshot) — falls back to opening it
+ * in a new tab when the file host blocks cross-origin fetching. */
+const downloadScreenshot = async (url, filename) => {
+  if (!url) return;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("fetch failed");
+    const blob = await response.blob();
+    const objectUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = filename || "payment-screenshot.jpg";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => window.URL.revokeObjectURL(objectUrl), 5000);
+    toast.success("Screenshot downloaded");
+  } catch {
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+};
+
 const statusOptions = ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "returned"];
 const printStatusOptions = [
   "pending",
@@ -1764,6 +1786,59 @@ function AdminPanel() {
     }
   };
 
+  /* QR payment verification (approve → paid + shipment, reject → failed) */
+  const [qrUploading, setQrUploading] = useState(false);
+
+  const verifyOrderPayment = async (id, verified) => {
+    try {
+      const res = await adminService.verifyOrderPayment(id, { verified });
+      toast.success(res.data?.message || (verified ? "Payment approved" : "Payment rejected"));
+      loadAdminData();
+      loadOrderDetails(id);
+      return true;
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Payment verification failed");
+      return false;
+    }
+  };
+
+  const verifyPrintPayment = async (id, verified) => {
+    try {
+      const res = await adminService.verifyPrintPayment(id, { verified });
+      toast.success(res.data?.message || (verified ? "Payment approved" : "Payment rejected"));
+      loadAdminData();
+      loadPrintOrderDetails(id);
+      return true;
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Payment verification failed");
+      return false;
+    }
+  };
+
+  const uploadQrImageFile = async (file) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose an image file for the QR code");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("QR image must be under 5MB");
+      return;
+    }
+    setQrUploading(true);
+    try {
+      const res = await adminService.uploadQrImage(file);
+      const url = res.data?.data?.image_url || "";
+      if (url) setSettingsForm((prev) => ({ ...prev, qr_image_url: url }));
+      toast.success("QR code updated");
+      loadAdminData();
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "QR upload failed");
+    } finally {
+      setQrUploading(false);
+    }
+  };
+
   const loadOrderDetails = async (orderId) => {
     setDetailLoading(true);
     try {
@@ -1814,10 +1889,51 @@ function AdminPanel() {
 
   const tabById = Object.fromEntries(tabs.map((tab) => [tab.id, tab]));
 
+  const parseSlabsSetting = (raw) => {
+    let arr = raw;
+    if (typeof arr === "string") {
+      try {
+        arr = JSON.parse(arr);
+      } catch {
+        return null;
+      }
+    }
+    if (!Array.isArray(arr) || arr.length === 0) return null;
+    const clean = [];
+    for (const s of arr) {
+      const min = Number(s.min);
+      const max = s.max === null || s.max === undefined || s.max === "" ? null : Number(s.max);
+      const rate = Number(s.rate);
+      if (!Number.isFinite(min) || min < 0 || !Number.isFinite(rate) || rate < 0) return null;
+      if (max !== null && (!Number.isFinite(max) || max <= min)) return null;
+      clean.push({ min, max, rate });
+    }
+    clean.sort((a, b) => a.min - b.min);
+    return clean;
+  };
+
+  const slabLabelFor = (slab) =>
+    slab.max === null || slab.max === undefined || slab.max === ""
+      ? `${slab.min}+ hours`
+      : `${slab.min}–${slab.max} hours`;
+
+  /* Hourly slabs: admin JSON (Hourly Rates tab) wins, legacy 4 keys fallback. */
+  const hourlySlabs = useMemo(() => {
+    const fromJson = parseSlabsSetting(siteSettings?.print_time_slabs);
+    if (fromJson) return fromJson;
+    return [
+      { min: 0, max: 5, rate: Number(siteSettings?.print_rate_0_5 ?? 50) },
+      { min: 5, max: 10, rate: Number(siteSettings?.print_rate_5_10 ?? 45) },
+      { min: 10, max: 20, rate: Number(siteSettings?.print_rate_10_20 ?? 40) },
+      { min: 20, max: null, rate: Number(siteSettings?.print_rate_20_plus ?? 35) },
+    ];
+  }, [siteSettings]);
+
   const printSubTabs = [
     { id: "orders", label: "3D Printing Orders", count: printOrders.length, Icon: Box },
     { id: "colors", label: "Colors", count: colors.length, Icon: Palette },
     { id: "materials", label: "Materials", count: materials.length, Icon: Cuboid },
+    { id: "rates", label: "Hourly Rates", count: hourlySlabs.length, Icon: Clock },
   ];
 
   const colorUsageMap = useMemo(() => {
@@ -1937,9 +2053,14 @@ function AdminPanel() {
 
   const MATERIAL_META = {
     PLA: { chemical: "Polylactic Acid", type: "Bioplastic", tone: "green", image: "/images/products/blue_filament.png" },
+    "PLA+": { chemical: "PLA Plus", type: "Bioplastic", tone: "green", image: "/images/products/blue_filament.png" },
+    "PLA MATTE": { chemical: "PLA Matte", type: "Bioplastic", tone: "green", image: "/images/products/blue_filament.png" },
     PETG: { chemical: "Polyethylene Terephthalate Glycol", type: "Thermoplastic", tone: "blue", image: "/images/products/petg_filament.jpg" },
-    ABS: { chemical: "Acrylonitrile Butadiene Styrene", type: "Thermoplastic", tone: "blue", image: "/images/products/abs_filament.jpg" },
+    "PETG HS": { chemical: "PETG High-Speed", type: "Thermoplastic", tone: "blue", image: "/images/products/petg_filament.jpg" },
+    ASA: { chemical: "Acrylonitrile Styrene Acrylate", type: "Thermoplastic", tone: "blue", image: "/images/products/abs_filament.jpg" },
+    "TPU 95A": { chemical: "Thermoplastic Polyurethane 95A", type: "Flexible", tone: "purple", image: "/images/products/tpu_filament.jpg" },
     TPU: { chemical: "Thermoplastic Polyurethane", type: "Flexible", tone: "purple", image: "/images/products/tpu_filament.jpg" },
+    ABS: { chemical: "Acrylonitrile Butadiene Styrene", type: "Thermoplastic", tone: "blue", image: "/images/products/abs_filament.jpg" },
   };
 
   const getMaterialMeta = (material) => {
@@ -2003,6 +2124,100 @@ function AdminPanel() {
     (safeMaterialPage - 1) * materialPerPage,
     safeMaterialPage * materialPerPage
   );
+
+  const [ratesForm, setRatesForm] = useState([]);
+  const [ratesHoursPerGram, setRatesHoursPerGram] = useState("0.15");
+  const [ratesSaving, setRatesSaving] = useState(false);
+
+  useEffect(() => {
+    setRatesForm(hourlySlabs.map((s) => ({ min: String(s.min), max: s.max === null ? "" : String(s.max), rate: String(s.rate) })));
+    if (siteSettings?.print_hours_per_gram !== undefined && siteSettings?.print_hours_per_gram !== "") {
+      setRatesHoursPerGram(String(siteSettings.print_hours_per_gram));
+    }
+  }, [siteSettings]);
+
+  const updateRateRow = (idx, field, value) => {
+    setRatesForm((prev) => prev.map((row, i) => (i === idx ? { ...row, [field]: value } : row)));
+  };
+
+  const addRateRow = () => {
+    setRatesForm((prev) => {
+      const rows = [...prev];
+      const last = rows[rows.length - 1];
+      const base = last ? (last.max === "" ? Number(last.min) + 10 : Number(last.max)) : 0;
+      const newMin = Number.isFinite(base) && base >= 0 ? base : 0;
+      if (last && last.max === "") last.max = String(newMin);
+      rows.push({ min: String(newMin), max: "", rate: "35" });
+      return rows;
+    });
+  };
+
+  const deleteRateRow = (idx) => {
+    setRatesForm((prev) => {
+      if (prev.length <= 1) {
+        toast.error("At least one hourly slab is required");
+        return prev;
+      }
+      return prev.filter((_, i) => i !== idx);
+    });
+  };
+
+  const saveHourlyRates = async (event) => {
+    event.preventDefault();
+    const rows = [...ratesForm]
+      .map((r) => ({
+        min: Number(r.min),
+        max: r.max === "" ? null : Number(r.max),
+        rate: Number(r.rate),
+      }))
+      .sort((a, b) => a.min - b.min);
+    if (!rows.length) {
+      toast.error("Add at least one hourly slab");
+      return;
+    }
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      if (!Number.isFinite(r.min) || r.min < 0) {
+        toast.error(`Row ${i + 1}: enter a valid From (hours)`);
+        return;
+      }
+      if (!Number.isFinite(r.rate) || r.rate <= 0) {
+        toast.error(`Row ${i + 1}: enter a valid Rate (₹/hour)`);
+        return;
+      }
+      if (r.max !== null && (!Number.isFinite(r.max) || r.max <= r.min)) {
+        toast.error(`Row ${i + 1}: To (hours) must be greater than From`);
+        return;
+      }
+    }
+    // Normalize: contiguous slabs from 0, last slab unbounded.
+    rows[0].min = 0;
+    for (let i = 1; i < rows.length; i++) {
+      rows[i].min = rows[i - 1].max === null ? rows[i - 1].min : rows[i - 1].max;
+      if (rows[i].max !== null && rows[i].max <= rows[i].min) {
+        rows[i].max = rows[i].min + 5;
+      }
+    }
+    rows[rows.length - 1].max = null;
+    const hpg = Number(ratesHoursPerGram);
+    if (!Number.isFinite(hpg) || hpg <= 0) {
+      toast.error("Enter a valid hours-per-gram value");
+      return;
+    }
+    setRatesSaving(true);
+    try {
+      await adminService.updateSettings({
+        print_time_slabs: JSON.stringify(rows),
+        print_hours_per_gram: String(hpg),
+      });
+      toast.success("Hourly rates saved");
+      loadAdminData();
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Hourly rates save failed");
+    } finally {
+      setRatesSaving(false);
+    }
+  };
 
   const duplicateMaterial = async (material) => {
     try {
@@ -2931,6 +3146,7 @@ function AdminPanel() {
                   loadAdminData();
                   loadOrderDetails(id);
                 }}
+                onVerifyPayment={verifyOrderPayment}
                 statusOptions={statusOptions}
                 money={money}
               />
@@ -3257,6 +3473,7 @@ function AdminPanel() {
                       loadAdminData();
                       loadPrintOrderDetails(id);
                     }}
+                    onVerifyPayment={verifyPrintPayment}
                     statusOptions={printStatusOptions}
                     money={money}
                   />
@@ -3471,6 +3688,94 @@ function AdminPanel() {
                       </button>
                     </div>
                   </div>
+                </div>
+                )}
+
+                {printSubTab === "rates" && (
+                <div className="admin-panel admin-section-panel">
+                  <div className="admin-panel-title-row admin-colors-head">
+                    <div className="admin-colors-title">
+                      <span className="admin-print-orders-ico">
+                        <Clock size={22} />
+                      </span>
+                      <div>
+                        <h2>Hourly Rates</h2>
+                        <p className="admin-panel-subtitle">Time-based printing charge. Final price = Material charge + Printing-time charge. Print time is auto-estimated from the model weight.</p>
+                      </div>
+                    </div>
+                    <div className="admin-actions compact admin-colors-tools">
+                      <button type="button" className="admin-primary" onClick={addRateRow}>
+                        <Plus size={16} />
+                        <span>Add Slab</span>
+                      </button>
+                    </div>
+                  </div>
+                  <form className="admin-form" onSubmit={saveHourlyRates}>
+                    <div className="admin-colors-table-wrap">
+                      <div className="admin-colors-table-head" style={{ gridTemplateColumns: "1fr 1fr 1fr 60px" }}>
+                        <span>From (hours)</span>
+                        <span>To (hours, empty = no limit)</span>
+                        <span>Rate (₹/hour)</span>
+                        <span className="actions">Actions</span>
+                      </div>
+                      {ratesForm.map((row, idx) => (
+                        <div className="admin-colors-table-row" key={idx} style={{ gridTemplateColumns: "1fr 1fr 1fr 60px" }}>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.5"
+                            value={row.min}
+                            onChange={(e) => updateRateRow(idx, "min", e.target.value)}
+                            aria-label={`Slab ${idx + 1} from hours`}
+                          />
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.5"
+                            value={row.max}
+                            placeholder="No limit"
+                            onChange={(e) => updateRateRow(idx, "max", e.target.value)}
+                            aria-label={`Slab ${idx + 1} to hours`}
+                          />
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={row.rate}
+                            onChange={(e) => updateRateRow(idx, "rate", e.target.value)}
+                            aria-label={`Slab ${idx + 1} rate per hour`}
+                          />
+                          <button
+                            type="button"
+                            className="admin-icon danger"
+                            onClick={() => deleteRateRow(idx)}
+                            title="Delete slab"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      ))}
+                      {!ratesForm.length && <div className="admin-empty small">No slabs yet — add one.</div>}
+                    </div>
+                    <div className="admin-form-grid" style={{ marginTop: 12 }}>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="Print hours per gram (e.g. 0.15)"
+                        value={ratesHoursPerGram}
+                        onChange={(e) => setRatesHoursPerGram(e.target.value)}
+                        aria-label="Print hours per gram"
+                      />
+                    </div>
+                    <p className="admin-panel-subtitle">
+                      Live chart: {hourlySlabs.map((s) => `${slabLabelFor(s)} ₹${s.rate}/h`).join(" • ")} • {siteSettings?.print_hours_per_gram || ratesHoursPerGram}h per gram
+                    </p>
+                    <button className="admin-primary" type="submit" disabled={ratesSaving}>
+                      <Save size={16} />
+                      <span>{ratesSaving ? "Saving..." : "Save Hourly Rates"}</span>
+                    </button>
+                  </form>
                 </div>
                 )}
 
@@ -5082,6 +5387,7 @@ function AdminPanel() {
                       <input placeholder="Express shipping cost (Rs.)" value={settingsForm?.express_shipping_cost || ""} onChange={(e) => updateSettingField("express_shipping_cost", e.target.value)} />
                       <input placeholder="3D print delivery window" value={settingsForm?.printing_delivery_days || ""} onChange={(e) => updateSettingField("printing_delivery_days", e.target.value)} />
                       <input placeholder="3D print delivery region" value={settingsForm?.printing_delivery_region || ""} onChange={(e) => updateSettingField("printing_delivery_region", e.target.value)} />
+                      <input placeholder="Print hours per gram (e.g. 0.15)" type="number" step="0.01" value={settingsForm?.print_hours_per_gram || ""} onChange={(e) => updateSettingField("print_hours_per_gram", e.target.value)} />
                     </div>
                     <textarea placeholder="Company address" value={settingsForm?.company_address || ""} onChange={(e) => updateSettingField("company_address", e.target.value)} />
                     <textarea placeholder="Business hours" value={settingsForm?.business_hours || ""} onChange={(e) => updateSettingField("business_hours", e.target.value)} />
@@ -5089,6 +5395,75 @@ function AdminPanel() {
                       <Save size={16} />
                       <span>{settingsSaving ? "Saving..." : "Save Settings"}</span>
                     </button>
+                  </form>
+                </div>
+
+                <div className="admin-panel">
+                  <div className="admin-panel-title-row">
+                    <div>
+                      <h2>3D Printing Selling Rate Chart</h2>
+                      <p className="admin-panel-subtitle">Final price = Material charge + Printing-time charge. Materials are edited under 3D Printing → Materials; hourly slabs under 3D Printing → Hourly Rates.</p>
+                    </div>
+                    <button type="button" className="admin-primary" onClick={() => { setActiveTab("printing"); setPrintSubTab("rates"); }}>
+                      <Clock size={16} />
+                      <span>Manage Hourly Rates</span>
+                    </button>
+                  </div>
+                  <div className="admin-list">
+                    <div className="admin-panel-subtitle" style={{ fontWeight: 700 }}>Material-based Selling Rate (₹/g)</div>
+                    {(materials || []).map((m) => (
+                      <article className="admin-user-row" key={m.id} style={{ gridTemplateColumns: "minmax(0, 1fr) 110px 44px" }}>
+                        <div>
+                          <strong>{m.name}</strong>
+                          <span>₹{m.price_per_gram}/g • density {m.density_g_cm3} g/cm³ {m.is_active ? "" : "• inactive"}</span>
+                        </div>
+                        <span className="admin-count-badge">₹{m.price_per_gram}/g</span>
+                        <button type="button" className="admin-icon" title="Edit material" onClick={() => { openEditMaterial(m); }}>
+                          <Pencil size={16} />
+                        </button>
+                      </article>
+                    ))}
+                    {!(materials || []).length && <div className="admin-empty small">No materials yet.</div>}
+                    <div className="admin-panel-subtitle" style={{ fontWeight: 700, marginTop: 8 }}>
+                      Time-based Printing Charge — {hourlySlabs.map((s) => `${slabLabelFor(s)} ₹${s.rate}/h`).join(" • ")} • {settingsForm?.print_hours_per_gram || 0.15}h per gram
+                    </div>
+                  </div>
+                </div>
+
+                <div className="admin-panel">
+                  <div className="admin-panel-title-row">
+                    <div>
+                      <h2>QR Payment (UPI)</h2>
+                      <p className="admin-panel-subtitle">Shown on the checkout “Pay with QR” option. Save the form in Site Settings after editing the text fields.</p>
+                    </div>
+                  </div>
+                  <form className="admin-form" onSubmit={submitSettings}>
+                    <div className="admin-form-grid">
+                      <input placeholder="UPI ID (e.g. printynozzle@upi)" value={settingsForm?.qr_upi_id || ""} onChange={(e) => updateSettingField("qr_upi_id", e.target.value)} />
+                      <input placeholder="Payee name" value={settingsForm?.qr_payee_name || ""} onChange={(e) => updateSettingField("qr_payee_name", e.target.value)} />
+                    </div>
+                    {settingsForm?.qr_image_url && (
+                      <div style={{ margin: "8px 0" }}>
+                        <img src={settingsForm.qr_image_url} alt="Merchant QR code" style={{ maxWidth: 220, width: "100%", borderRadius: 8, border: "1px solid #e2e8f0" }} />
+                      </div>
+                    )}
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                      <label className="admin-primary small" style={{ cursor: "pointer" }}>
+                        <Upload size={15} />
+                        <span>{qrUploading ? "Uploading…" : settingsForm?.qr_image_url ? "Replace QR Code" : "Upload QR Code"}</span>
+                        <input
+                          type="file"
+                          hidden
+                          accept="image/*"
+                          onChange={(e) => { if (e.target.files?.[0]) uploadQrImageFile(e.target.files[0]); e.target.value = ""; }}
+                          disabled={qrUploading}
+                        />
+                      </label>
+                      <button className="admin-primary small" type="submit" disabled={settingsSaving}>
+                        <Save size={15} />
+                        <span>{settingsSaving ? "Saving..." : "Save QR Details"}</span>
+                      </button>
+                    </div>
                   </form>
                 </div>
 
@@ -6022,10 +6397,11 @@ function AdminShipmentCard({ order, orderType, onChanged }) {
 /* ============================================================ */
 /* ADMIN ORDER DETAIL VIEW (Regular product orders)             */
 /* ============================================================ */
-function AdminOrderDetail({ order, loading, onBack, onStatusUpdate, onTrackingUpdate, onShipmentChange, statusOptions, money }) {
+function AdminOrderDetail({ order, loading, onBack, onStatusUpdate, onTrackingUpdate, onShipmentChange, onVerifyPayment, statusOptions, money }) {
   const [trackingForm, setTrackingForm] = useState({});
   const [trackingSaved, setTrackingSaved] = useState(false);
   const [invoiceBusy, setInvoiceBusy] = useState(false);
+  const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
     if (order?.id) {
@@ -6158,6 +6534,59 @@ function AdminOrderDetail({ order, loading, onBack, onStatusUpdate, onTrackingUp
               <span className="admin-detail-label">Payment Status</span>
               <span className={`admin-detail-payment-badge ${order.payment_status}`}>{order.payment_status}</span>
             </div>
+            {order.payment_method === "qr" && order.payment_screenshot_url && (
+              <div className="admin-detail-field" style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
+                <span className="admin-detail-label">Payment Screenshot</span>
+                <a href={order.payment_screenshot_url} target="_blank" rel="noopener noreferrer">
+                  <img
+                    src={order.payment_screenshot_url}
+                    alt="Payment screenshot"
+                    style={{ maxWidth: 280, width: "100%", borderRadius: 8, border: "1px solid #e2e8f0" }}
+                  />
+                </a>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    className="admin-primary small"
+                    onClick={() => downloadScreenshot(order.payment_screenshot_url, `payment-screenshot-order-${order.order_number || order.id}.jpg`)}
+                  >
+                    <Download size={15} />
+                    <span>Download Screenshot</span>
+                  </button>
+                </div>
+                {order.payment_status === "pending" && onVerifyPayment && (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      className="admin-primary small"
+                      disabled={verifying}
+                      onClick={async () => {
+                        setVerifying(true);
+                        await onVerifyPayment(order.id, true);
+                        setVerifying(false);
+                      }}
+                    >
+                      <CheckCircle2 size={15} />
+                      <span>{verifying ? "Working…" : "Approve Payment"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="admin-icon danger"
+                      disabled={verifying}
+                      title="Reject payment"
+                      onClick={async () => {
+                        if (!window.confirm("Reject this QR payment? The order will be marked as failed.")) return;
+                        setVerifying(true);
+                        await onVerifyPayment(order.id, false);
+                        setVerifying(false);
+                      }}
+                    >
+                      <XCircle size={16} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
             {order.tracking_number && (
               <div className="admin-detail-field">
                 <span className="admin-detail-label">Tracking</span>
@@ -6290,10 +6719,11 @@ function AdminOrderDetail({ order, loading, onBack, onStatusUpdate, onTrackingUp
 /* ============================================================ */
 /* ADMIN 3D PRINT ORDER DETAIL VIEW                             */
 /* ============================================================ */
-function AdminPrintOrderDetail({ order, loading, onBack, onStatusUpdate, onNotesUpdate, onShipmentChange, statusOptions, money }) {
+function AdminPrintOrderDetail({ order, loading, onBack, onStatusUpdate, onNotesUpdate, onShipmentChange, onVerifyPayment, statusOptions, money }) {
   const [notesForm, setNotesForm] = useState("");
   const [notesSaved, setNotesSaved] = useState(false);
   const [invoiceBusy, setInvoiceBusy] = useState(false);
+  const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
     if (order?.id) {
@@ -6495,6 +6925,59 @@ function AdminPrintOrderDetail({ order, loading, onBack, onStatusUpdate, onNotes
               <span className="admin-detail-label">Payment Status</span>
               <span className={`admin-detail-payment-badge ${order.payment_status}`}>{order.payment_status}</span>
             </div>
+            {order.payment_method === "qr" && order.payment_screenshot_url && (
+              <div className="admin-detail-field" style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
+                <span className="admin-detail-label">Payment Screenshot</span>
+                <a href={order.payment_screenshot_url} target="_blank" rel="noopener noreferrer">
+                  <img
+                    src={order.payment_screenshot_url}
+                    alt="Payment screenshot"
+                    style={{ maxWidth: 280, width: "100%", borderRadius: 8, border: "1px solid #e2e8f0" }}
+                  />
+                </a>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    className="admin-primary small"
+                    onClick={() => downloadScreenshot(order.payment_screenshot_url, `payment-screenshot-print-${order.order_number || order.id}.jpg`)}
+                  >
+                    <Download size={15} />
+                    <span>Download Screenshot</span>
+                  </button>
+                </div>
+                {order.payment_status === "pending" && onVerifyPayment && (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      className="admin-primary small"
+                      disabled={verifying}
+                      onClick={async () => {
+                        setVerifying(true);
+                        await onVerifyPayment(order.id, true);
+                        setVerifying(false);
+                      }}
+                    >
+                      <CheckCircle2 size={15} />
+                      <span>{verifying ? "Working…" : "Approve Payment"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="admin-icon danger"
+                      disabled={verifying}
+                      title="Reject payment"
+                      onClick={async () => {
+                        if (!window.confirm("Reject this QR payment? The order will be marked as failed.")) return;
+                        setVerifying(true);
+                        await onVerifyPayment(order.id, false);
+                        setVerifying(false);
+                      }}
+                    >
+                      <XCircle size={16} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

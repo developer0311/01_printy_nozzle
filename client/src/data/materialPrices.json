@@ -5,13 +5,26 @@
     "minOrderAmount": 99,
     "estimatedDeliveryDays": "3 - 5 Working Days",
     "deliveryRegion": "Across India",
-    "freeShippingThreshold": 999
+    "freeShippingThreshold": 999,
+    "hoursPerGram": 0.15,
+    "timeRates": {
+      "rate_0_5": 50,
+      "rate_5_10": 45,
+      "rate_10_20": 40,
+      "rate_20_plus": 35
+    }
   },
+  "timeSlabs": [
+    { "key": "0_5", "label": "0–5 hours", "min": 0, "max": 5, "rate": 50, "unit": "₹/hour" },
+    { "key": "5_10", "label": "5–10 hours", "min": 5, "max": 10, "rate": 45, "unit": "₹/hour" },
+    { "key": "10_20", "label": "10–20 hours", "min": 10, "max": 20, "rate": 40, "unit": "₹/hour" },
+    { "key": "20_plus", "label": "20+ hours", "min": 20, "max": null, "rate": 35, "unit": "₹/hour" }
+  ],
   "materials": [
     {
       "id": "pla",
       "name": "PLA",
-      "pricePerGram": 12,
+      "pricePerGram": 4.5,
       "density": 1.24,
       "badge": "Popular",
       "description": "Easy to print, eco-friendly and great for everyday use.",
@@ -21,9 +34,33 @@
       "infillWeightMultiplier": 1.0
     },
     {
+      "id": "pla-plus",
+      "name": "PLA+",
+      "pricePerGram": 4.5,
+      "density": 1.24,
+      "badge": "Tough",
+      "description": "Upgraded PLA with higher toughness for functional prints.",
+      "bestFor": "Functional prototypes, Toys",
+      "image": "/images/products/blue_filament.png",
+      "spoolColor": "#1565C0",
+      "infillWeightMultiplier": 1.0
+    },
+    {
+      "id": "pla-matte",
+      "name": "PLA Matte",
+      "pricePerGram": 6,
+      "density": 1.24,
+      "badge": "Matte",
+      "description": "Matte surface finish, hides layer lines for display models.",
+      "bestFor": "Display models, Decor",
+      "image": "/images/products/blue_filament.png",
+      "spoolColor": "#546E7A",
+      "infillWeightMultiplier": 1.0
+    },
+    {
       "id": "petg",
       "name": "PETG",
-      "pricePerGram": 15,
+      "pricePerGram": 5.5,
       "density": 1.27,
       "badge": "Durable",
       "description": "Strong, durable and resistant to moisture and chemicals.",
@@ -33,21 +70,33 @@
       "infillWeightMultiplier": 1.05
     },
     {
-      "id": "abs",
-      "name": "ABS",
-      "pricePerGram": 14,
-      "density": 1.04,
-      "badge": "Tough",
-      "description": "Tough and heat resistant ideal for functional applications.",
-      "bestFor": "Mechanical parts, Tools",
+      "id": "petg-hs",
+      "name": "PETG HS",
+      "pricePerGram": 5.5,
+      "density": 1.27,
+      "badge": "Fast",
+      "description": "High-speed PETG tuned for faster printing.",
+      "bestFor": "Functional parts, Fast prints",
+      "image": "/images/products/petg_filament.jpg",
+      "spoolColor": "#00796B",
+      "infillWeightMultiplier": 1.05
+    },
+    {
+      "id": "asa",
+      "name": "ASA",
+      "pricePerGram": 8,
+      "density": 1.07,
+      "badge": "Outdoor",
+      "description": "UV-stable and heat resistant for outdoor parts.",
+      "bestFor": "Outdoor parts, Automotive",
       "image": "/images/products/abs_filament.jpg",
-      "spoolColor": "#212121",
+      "spoolColor": "#37474F",
       "infillWeightMultiplier": 0.95
     },
     {
-      "id": "tpu",
-      "name": "TPU",
-      "pricePerGram": 18,
+      "id": "tpu-95a",
+      "name": "TPU 95A",
+      "pricePerGram": 10,
       "density": 1.21,
       "badge": "Flexible",
       "description": "Flexible, rubber-like material with great durability.",
@@ -55,6 +104,18 @@
       "image": "/images/products/tpu_filament.jpg",
       "spoolColor": "#E0E0E0",
       "infillWeightMultiplier": 1.1
+    },
+    {
+      "id": "abs",
+      "name": "ABS",
+      "pricePerGram": 8,
+      "density": 1.04,
+      "badge": "Tough",
+      "description": "Tough and heat resistant ideal for functional applications.",
+      "bestFor": "Mechanical parts, Tools",
+      "image": "/images/products/abs_filament.jpg",
+      "spoolColor": "#212121",
+      "infillWeightMultiplier": 0.95
     }
   ],
   "colors": [

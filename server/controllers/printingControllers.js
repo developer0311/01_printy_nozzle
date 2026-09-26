@@ -75,14 +75,37 @@ const uploadPrintFile = async (req, res) => {
 };
 
 /* ===================== GET PRINTING CONFIG ===================== */
+const getPrintPricingSettings = async (connOrDb) => {
+  const [settings] = await (connOrDb || db).query(
+    "SELECT setting_key, setting_value FROM site_settings WHERE setting_key IN ('gst_rate', 'smooth_finish_per_gram', 'free_shipping_threshold', 'printing_delivery_days', 'printing_delivery_region', 'print_hours_per_gram', 'print_time_slabs', 'print_rate_0_5', 'print_rate_5_10', 'print_rate_10_20', 'print_rate_20_plus')"
+  );
+  const map = {};
+  (settings || []).forEach((s) => (map[s.setting_key] = s.setting_value));
+  return {
+    gst_rate: map.gst_rate,
+    smooth_finish_per_gram: map.smooth_finish_per_gram,
+    free_shipping_threshold: map.free_shipping_threshold,
+    printing_delivery_days: map.printing_delivery_days,
+    printing_delivery_region: map.printing_delivery_region,
+    print_hours_per_gram: map.print_hours_per_gram !== undefined ? Number(map.print_hours_per_gram) : 0.15,
+    print_time_slabs: map.print_time_slabs || "",
+    print_rate_0_5: map.print_rate_0_5 !== undefined ? Number(map.print_rate_0_5) : 50,
+    print_rate_5_10: map.print_rate_5_10 !== undefined ? Number(map.print_rate_5_10) : 45,
+    print_rate_10_20: map.print_rate_10_20 !== undefined ? Number(map.print_rate_10_20) : 40,
+    print_rate_20_plus: map.print_rate_20_plus !== undefined ? Number(map.print_rate_20_plus) : 35,
+  };
+};
+
+const toTimeRates = (s) => ({
+  rate_0_5: Number(s.print_rate_0_5 ?? 50),
+  rate_5_10: Number(s.print_rate_5_10 ?? 45),
+  rate_10_20: Number(s.print_rate_10_20 ?? 40),
+  rate_20_plus: Number(s.print_rate_20_plus ?? 35),
+});
+
 const getPrintingConfig = async (req, res) => {
   try {
-    const [settings] = await db.query(
-      "SELECT setting_key, setting_value FROM site_settings WHERE setting_key IN ('gst_rate', 'smooth_finish_per_gram', 'free_shipping_threshold', 'printing_delivery_days', 'printing_delivery_region')"
-    );
-    const settingsMap = {};
-    settings.forEach((s) => (settingsMap[s.setting_key] = s.setting_value));
-
+    const settingsMap = await getPrintPricingSettings();
     return res.status(200).json({ success: true, settings: settingsMap });
   } catch (error) {
     console.error("Get printing config error:", error);
@@ -147,12 +170,12 @@ const calculatePrice = async (req, res) => {
       if (colors.length > 0) colorAdjustment = colors[0].price_adjustment;
     }
 
-    // Get GST rate and smooth finish cost from settings
-    const [settings] = await db.query(
-      "SELECT setting_key, setting_value FROM site_settings WHERE setting_key IN ('gst_rate', 'smooth_finish_per_gram')"
-    );
-    const settingsMap = {};
-    settings.forEach((s) => (settingsMap[s.setting_key] = parseFloat(s.setting_value)));
+    // Get GST rate, smooth finish cost + time-based charge settings
+    const pricingSettings = await getPrintPricingSettings();
+    const settingsMap = {
+      smooth_finish_per_gram: parseFloat(pricingSettings.smooth_finish_per_gram),
+      gst_rate: parseFloat(pricingSettings.gst_rate),
+    };
 
     const pricing = calculatePrintPrice({
       estimatedWeight: parseFloat(estimated_weight),
@@ -163,6 +186,9 @@ const calculatePrice = async (req, res) => {
       colorAdjustment,
       quantity: parseInt(quantity),
       gstRate: settingsMap.gst_rate || 18,
+      hoursPerGram: pricingSettings.print_hours_per_gram || 0.15,
+      timeSlabs: pricingSettings.print_time_slabs || undefined,
+      timeRates: toTimeRates(pricingSettings),
     });
 
     return res.status(200).json({
@@ -212,14 +238,14 @@ const createPrintOrder = async (req, res) => {
       if (colors.length > 0) colorAdjustment = colors[0].price_adjustment;
     }
 
-    // Get settings
-    const [settings] = await db.query(
-      "SELECT setting_key, setting_value FROM site_settings WHERE setting_key IN ('gst_rate', 'smooth_finish_per_gram')"
-    );
-    const settingsMap = {};
-    settings.forEach((s) => (settingsMap[s.setting_key] = parseFloat(s.setting_value)));
+    // Get settings (material + time-based charges + GST)
+    const pricingSettings = await getPrintPricingSettings();
+    const settingsMap = {
+      smooth_finish_per_gram: parseFloat(pricingSettings.smooth_finish_per_gram),
+      gst_rate: parseFloat(pricingSettings.gst_rate),
+    };
 
-    // Calculate price
+    // Calculate price — Final = material charge + printing-time charge
     const pricing = calculatePrintPrice({
       estimatedWeight: parseFloat(estimated_weight),
       pricePerGram: parseFloat(materials[0].price_per_gram),
@@ -229,39 +255,78 @@ const createPrintOrder = async (req, res) => {
       colorAdjustment,
       quantity: parseInt(quantity),
       gstRate: settingsMap.gst_rate || 18,
+      hoursPerGram: pricingSettings.print_hours_per_gram || 0.15,
+      timeSlabs: pricingSettings.print_time_slabs || undefined,
+      timeRates: toTimeRates(pricingSettings),
     });
 
     // Generate order number
     const orderNumber = "3D" + Date.now().toString(36).toUpperCase() + crypto.randomBytes(2).toString("hex").toUpperCase();
 
-    // Create order
-    const [result] = await db.query(
-      `INSERT INTO printing_orders (
-        user_id, order_number, status,
-        file_name, file_url, file_public_id, file_size,
-        dimension_x, dimension_y, dimension_z,
-        material_id, color_id, custom_color_hex,
-        infill_density, surface_finish, quantity,
-        estimated_weight, material_cost, color_cost, finish_cost,
-        subtotal, tax_amount, total_amount,
-        shipping_name, shipping_phone, shipping_address1,
-        shipping_city, shipping_state, shipping_pincode,
-        payment_method, payment_status, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        req.user.id, orderNumber, "confirmed",
-        file_name, file_url, file_public_id || null, file_size || null,
-        dimension_x || null, dimension_y || null, dimension_z || null,
-        material_id, color_id || null, custom_color_hex || null,
-        parseInt(infill_density), surface_finish, parseInt(quantity),
-        pricing.effectiveWeight, pricing.materialCost, pricing.colorCost, pricing.finishCost,
-        pricing.subtotal, pricing.taxAmount, pricing.totalAmount,
-        shipping_name || null, shipping_phone || null, shipping_address1 || null,
-        shipping_city || null, shipping_state || null, shipping_pincode || null,
-        payment_method, payment_method === "cod" ? "pending" : "pending",
-        notes || null,
-      ]
-    );
+    // Create order (stores material + time breakup for invoice/admin)
+    let result;
+    try {
+      [result] = await db.query(
+        `INSERT INTO printing_orders (
+          user_id, order_number, status,
+          file_name, file_url, file_public_id, file_size,
+          dimension_x, dimension_y, dimension_z,
+          material_id, color_id, custom_color_hex,
+          infill_density, surface_finish, quantity,
+          estimated_weight, print_time_hours, material_cost, time_cost, color_cost, finish_cost,
+          subtotal, tax_amount, total_amount,
+          shipping_name, shipping_phone, shipping_address1,
+          shipping_city, shipping_state, shipping_pincode,
+          payment_method, payment_status, notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          req.user.id, orderNumber, "confirmed",
+          file_name, file_url, file_public_id || null, file_size || null,
+          dimension_x || null, dimension_y || null, dimension_z || null,
+          material_id, color_id || null, custom_color_hex || null,
+          parseInt(infill_density), surface_finish, parseInt(quantity),
+          pricing.effectiveWeight, pricing.printTimeHours, pricing.materialCost, pricing.timeCost, pricing.colorCost, pricing.finishCost,
+          pricing.subtotal, pricing.taxAmount, pricing.totalAmount,
+          shipping_name || null, shipping_phone || null, shipping_address1 || null,
+          shipping_city || null, shipping_state || null, shipping_pincode || null,
+          payment_method, payment_method === "cod" ? "pending" : "pending",
+          notes || null,
+        ]
+      );
+    } catch (insertErr) {
+      // Older DBs without time columns — fall back to legacy insert
+      if (insertErr && (insertErr.code === "ER_BAD_FIELD_ERROR" || /Unknown column/i.test(insertErr.message || ""))) {
+        [result] = await db.query(
+          `INSERT INTO printing_orders (
+            user_id, order_number, status,
+            file_name, file_url, file_public_id, file_size,
+            dimension_x, dimension_y, dimension_z,
+            material_id, color_id, custom_color_hex,
+            infill_density, surface_finish, quantity,
+            estimated_weight, material_cost, color_cost, finish_cost,
+            subtotal, tax_amount, total_amount,
+            shipping_name, shipping_phone, shipping_address1,
+            shipping_city, shipping_state, shipping_pincode,
+            payment_method, payment_status, notes
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            req.user.id, orderNumber, "confirmed",
+            file_name, file_url, file_public_id || null, file_size || null,
+            dimension_x || null, dimension_y || null, dimension_z || null,
+            material_id, color_id || null, custom_color_hex || null,
+            parseInt(infill_density), surface_finish, parseInt(quantity),
+            pricing.effectiveWeight, pricing.materialCost, pricing.colorCost, pricing.finishCost,
+            pricing.subtotal, pricing.taxAmount, pricing.totalAmount,
+            shipping_name || null, shipping_phone || null, shipping_address1 || null,
+            shipping_city || null, shipping_state || null, shipping_pincode || null,
+            payment_method, payment_method === "cod" ? "pending" : "pending",
+            notes || null,
+          ]
+        );
+      } else {
+        throw insertErr;
+      }
+    }
 
     // COD print orders are payable on delivery → auto-create Delhivery
     // shipment (fire-and-forget; prepaid hooks in verify-payment).
