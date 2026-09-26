@@ -1,5 +1,4 @@
 const db = require("../../config/db");
-
 /* ===================== GET ALL 3D PRINT ORDERS ===================== */
 const getAllPrintOrders = async (req, res) => {
   try {
@@ -286,6 +285,40 @@ const deleteColor = async (req, res) => {
   }
 };
 
+/* ===================== VERIFY QR PAYMENT =====================
+ * PUT /api/admin/printing/orders/:id/verify-payment { verified: true|false }
+ * Approve → payment paid + shipment auto-created + confirmation invoice mail.
+ * Reject → payment failed. */
+const verifyQrPayment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { verified } = req.body;
+
+    const [existing] = await db.query("SELECT * FROM printing_orders WHERE id = ?", [id]);
+    if (existing.length === 0) {
+      return res.status(404).json({ success: false, message: "3D print order not found" });
+    }
+    if (existing[0].payment_method !== "qr") {
+      return res.status(400).json({ success: false, message: "Only QR orders can be verified here" });
+    }
+
+    if (verified) {
+      await db.query("UPDATE printing_orders SET payment_status = 'paid' WHERE id = ?", [id]);
+      const { triggerAutoShipment } = require("../../utils/shippingSync");
+      triggerAutoShipment("print", Number(id));
+      const { mailPrintInvoiceByIds } = require("../../utils/mailer");
+      mailPrintInvoiceByIds([Number(id)]).catch(() => {});
+      return res.status(200).json({ success: true, message: "QR payment approved — print order confirmed" });
+    }
+
+    await db.query("UPDATE printing_orders SET payment_status = 'failed' WHERE id = ?", [id]);
+    return res.status(200).json({ success: true, message: "QR payment rejected" });
+  } catch (error) {
+    console.error("Admin verifyQrPayment (print) error:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 /* ===================== GET PRINT ORDER INVOICE (ADMIN, JSON / PDF) ===================== */
 const getPrintOrderInvoice = async (req, res) => {
   try {
@@ -364,6 +397,7 @@ module.exports = {
   getPrintOrderDetails,
   getPrintOrderInvoice,
   updatePrintOrderStatus,
+  verifyQrPayment,
   getAllMaterials,
   createMaterial,
   updateMaterial,

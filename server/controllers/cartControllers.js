@@ -305,12 +305,24 @@ const addPrintToCart = async (req, res) => {
       if (colors.length > 0) colorAdjustment = Number(colors[0].price_adjustment || 0);
     }
 
-    // Settings for pricing
+    // Settings for pricing (material + time-based charges + GST)
     const [settings] = await db.query(
-      "SELECT setting_key, setting_value FROM site_settings WHERE setting_key IN ('gst_rate', 'smooth_finish_per_gram')"
+      "SELECT setting_key, setting_value FROM site_settings WHERE setting_key IN ('gst_rate', 'smooth_finish_per_gram', 'print_hours_per_gram', 'print_time_slabs', 'print_rate_0_5', 'print_rate_5_10', 'print_rate_10_20', 'print_rate_20_plus')"
     );
     const settingsMap = {};
-    (settings || []).forEach((s) => (settingsMap[s.setting_key] = parseFloat(s.setting_value)));
+    (settings || []).forEach((s) => {
+      if (s.setting_key === "print_time_slabs") {
+        settingsMap[s.setting_key] = s.setting_value || "";
+      } else {
+        settingsMap[s.setting_key] = parseFloat(s.setting_value);
+      }
+    });
+    const timeRates = {
+      rate_0_5: settingsMap.print_rate_0_5 || 50,
+      rate_5_10: settingsMap.print_rate_5_10 || 45,
+      rate_10_20: settingsMap.print_rate_10_20 || 40,
+      rate_20_plus: settingsMap.print_rate_20_plus || 35,
+    };
 
     const pricing = calculatePrintPrice({
       estimatedWeight: parseFloat(estimated_weight),
@@ -321,6 +333,9 @@ const addPrintToCart = async (req, res) => {
       colorAdjustment,
       quantity: 1,
       gstRate: settingsMap.gst_rate || 18,
+      hoursPerGram: settingsMap.print_hours_per_gram || 0.15,
+      timeSlabs: settingsMap.print_time_slabs || undefined,
+      timeRates,
     });
 
     const unitPrice = round2(pricing.perUnitCost);
@@ -333,42 +348,82 @@ const addPrintToCart = async (req, res) => {
     }
     const cartId = carts[0].id;
 
-    await db.query(
-      `INSERT INTO cart_items
-        (cart_id, product_id, variant_id, quantity, item_type, unit_price,
-         file_name, file_url, file_public_id, file_size,
-         dimension_x, dimension_y, dimension_z,
-         material_id, color_id, custom_color_hex,
-         infill_density, surface_finish, estimated_weight)
-       VALUES (?, NULL, NULL, ?, 'print', ?,
-         ?, ?, ?, ?,
-         ?, ?, ?,
-         ?, ?, ?,
-         ?, ?, ?)`,
-      [
-        cartId,
-        qty,
-        unitPrice,
-        file_name,
-        file_url || null,
-        file_public_id || null,
-        file_size != null ? Number(file_size) : null,
-        dimension_x != null ? Number(dimension_x) : null,
-        dimension_y != null ? Number(dimension_y) : null,
-        dimension_z != null ? Number(dimension_z) : null,
-        material_id,
-        color_id || null,
-        custom_color_hex || null,
-        parseInt(infill_density) || 50,
-        surface_finish === "smooth" ? "smooth" : "standard",
-        parseFloat(estimated_weight),
-      ]
-    );
+    try {
+      await db.query(
+        `INSERT INTO cart_items
+          (cart_id, product_id, variant_id, quantity, item_type, unit_price,
+           file_name, file_url, file_public_id, file_size,
+           dimension_x, dimension_y, dimension_z,
+           material_id, color_id, custom_color_hex,
+           infill_density, surface_finish, estimated_weight, print_time_hours, time_cost)
+         VALUES (?, NULL, NULL, ?, 'print', ?,
+           ?, ?, ?, ?,
+           ?, ?, ?,
+           ?, ?, ?,
+           ?, ?, ?, ?, ?)`,
+        [
+          cartId,
+          qty,
+          unitPrice,
+          file_name,
+          file_url || null,
+          file_public_id || null,
+          file_size != null ? Number(file_size) : null,
+          dimension_x != null ? Number(dimension_x) : null,
+          dimension_y != null ? Number(dimension_y) : null,
+          dimension_z != null ? Number(dimension_z) : null,
+          material_id,
+          color_id || null,
+          custom_color_hex || null,
+          parseInt(infill_density) || 50,
+          surface_finish === "smooth" ? "smooth" : "standard",
+          parseFloat(estimated_weight),
+          pricing.printTimeHours,
+          pricing.timeCost,
+        ]
+      );
+    } catch (e) {
+      if (e && (e.code === "ER_BAD_FIELD_ERROR" || /Unknown column/i.test(e.message || ""))) {
+        await db.query(
+          `INSERT INTO cart_items
+            (cart_id, product_id, variant_id, quantity, item_type, unit_price,
+             file_name, file_url, file_public_id, file_size,
+             dimension_x, dimension_y, dimension_z,
+             material_id, color_id, custom_color_hex,
+             infill_density, surface_finish, estimated_weight)
+           VALUES (?, NULL, NULL, ?, 'print', ?,
+             ?, ?, ?, ?,
+             ?, ?, ?,
+             ?, ?, ?,
+             ?, ?, ?)`,
+          [
+            cartId,
+            qty,
+            unitPrice,
+            file_name,
+            file_url || null,
+            file_public_id || null,
+            file_size != null ? Number(file_size) : null,
+            dimension_x != null ? Number(dimension_x) : null,
+            dimension_y != null ? Number(dimension_y) : null,
+            dimension_z != null ? Number(dimension_z) : null,
+            material_id,
+            color_id || null,
+            custom_color_hex || null,
+            parseInt(infill_density) || 50,
+            surface_finish === "smooth" ? "smooth" : "standard",
+            parseFloat(estimated_weight),
+          ]
+        );
+      } else {
+        throw e;
+      }
+    }
 
     return res.status(200).json({
       success: true,
       message: `Custom 3D print (${file_name}) added to cart`,
-      item: { unit_price: unitPrice, quantity: qty },
+      item: { unit_price: unitPrice, quantity: qty, print_time_hours: pricing.printTimeHours, time_cost: pricing.timeCost },
     });
   } catch (error) {
     console.error("Add print to cart error:", error);

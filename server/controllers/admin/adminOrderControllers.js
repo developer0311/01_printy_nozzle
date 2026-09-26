@@ -5,6 +5,8 @@ const {
   generateInvoicePdf,
   invoiceFileName,
 } = require("../../utils/invoice");
+const { triggerAutoShipment } = require("../../utils/shippingSync");
+const { mailOrderInvoiceById } = require("../../utils/mailer");
 
 /* ===================== MANUAL INVOICES (ADMIN, SAVED IN DB) =====================
  * Offline / phone orders. Every invoice is stored in `manual_invoices` +
@@ -612,10 +614,43 @@ const updateOrderStatus = async (req, res) => {
   }
 };
 
+/* ===================== VERIFY QR PAYMENT =====================
+ * PUT /api/admin/orders/:id/verify-payment { verified: true|false }
+ * Approve → payment paid + shipment auto-created + confirmation invoice mail.
+ * Reject → payment failed (customer can be asked to retry). */
+const verifyQrPayment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { verified } = req.body;
+
+    const [existing] = await db.query("SELECT * FROM orders WHERE id = ?", [id]);
+    if (existing.length === 0) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+    if (existing[0].payment_method !== "qr") {
+      return res.status(400).json({ success: false, message: "Only QR orders can be verified here" });
+    }
+
+    if (verified) {
+      await db.query("UPDATE orders SET payment_status = 'paid' WHERE id = ?", [id]);
+      triggerAutoShipment("order", Number(id));
+      mailOrderInvoiceById(Number(id)).catch(() => {});
+      return res.status(200).json({ success: true, message: "QR payment approved — order confirmed" });
+    }
+
+    await db.query("UPDATE orders SET payment_status = 'failed' WHERE id = ?", [id]);
+    return res.status(200).json({ success: true, message: "QR payment rejected" });
+  } catch (error) {
+    console.error("Admin verifyQrPayment error:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 module.exports = {
   getAllOrders,
   getOrderDetails,
   updateOrderStatus,
+  verifyQrPayment,
   createManualInvoice,
   listManualInvoices,
   getManualInvoice,

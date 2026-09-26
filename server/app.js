@@ -40,6 +40,13 @@ try {
   console.warn("⚠️ couponSchema preload skipped:", e.message);
 }
 
+// Self-healing DB migration for QR payments (ENUM + screenshot columns + settings)
+try {
+  require("./utils/qrPaymentSchema");
+} catch (e) {
+  console.warn("⚠️ qrPaymentSchema preload skipped:", e.message);
+}
+
 // Client Routers
 const authRoutes = require("./routers/authRoutes");
 const profileRoutes = require("./routers/profileRoutes");

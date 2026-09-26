@@ -49,6 +49,7 @@ const adminService = {
   },
   deleteManualInvoice: (id) => api.delete(`/admin/orders/manual-invoices/${id}`),
   getOrderInvoice: (id) => api.get(`/admin/orders/${id}/invoice`),
+  verifyOrderPayment: (id, payload) => api.put(`/admin/orders/${id}/verify-payment`, payload),
   downloadOrderInvoicePdf: async (id) => {
     const response = await api.get(`/admin/orders/${id}/invoice`, {
       params: { format: "pdf" },
@@ -60,6 +61,8 @@ const adminService = {
   getPrintOrderDetails: (id) => api.get(`/admin/printing/orders/${id}`),
   updatePrintOrderStatus: (id, payload) =>
     api.put(`/admin/printing/orders/${id}/status`, payload),
+  verifyPrintPayment: (id, payload) =>
+    api.put(`/admin/printing/orders/${id}/verify-payment`, payload),
   getPrintOrderInvoice: (id) => api.get(`/admin/printing/orders/${id}/invoice`),
   downloadPrintInvoicePdf: async (id) => {
     const response = await api.get(`/admin/printing/orders/${id}/invoice`, {
@@ -107,6 +110,13 @@ const adminService = {
   deleteContact: (id) => api.delete(`/admin/newsletter/contacts/${id}`),
   getSettings: () => api.get("/admin/settings"),
   updateSettings: (payload) => api.put("/admin/settings", payload),
+  uploadQrImage: (file) => {
+    const formData = new FormData();
+    formData.append("image", file);
+    return api.post("/admin/settings/qr-image", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
   getShippingStatus: () => api.get("/admin/shipping/status"),
   getWarehouses: () => api.get("/admin/shipping/warehouses"),
   verifyWarehouse: (payload) => api.post("/admin/shipping/warehouses/verify", payload),

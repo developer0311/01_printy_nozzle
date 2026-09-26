@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
 import "../../public/css/navbar.css";
 import authServices from "../services/auth.service";
@@ -8,6 +8,16 @@ import api from "../services/api.js";
 
 function Navbar() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Products vs Best Sellers share the /products pathname (only ?sort=
+  // differs), so NavLink's default matching lights up BOTH tabs. Highlight
+  // exactly one based on the actual query string instead.
+  const onProductsPage = location.pathname === "/products";
+  const isBestSellingView =
+    onProductsPage && new URLSearchParams(location.search).get("sort") === "bestselling";
+  const isProductsActive = onProductsPage && !isBestSellingView;
+  const isBestSellersActive = onProductsPage && isBestSellingView;
 
   /* =====================================================
      REFS
@@ -515,8 +525,9 @@ useEffect(() => {
               <li className="nav-item products-nav-item">
                 <NavLink
                   to="/products"
-                  className={({ isActive }) =>
-                    `nav-link-custom ${isActive ? "active" : ""}`
+                  end
+                  className={() =>
+                    `nav-link-custom ${isProductsActive ? "active" : ""}`
                   }
                   onClick={closeNavbar}
                 >
@@ -576,8 +587,8 @@ useEffect(() => {
               <li className="nav-item bestseller-nav-item">
                 <NavLink
                   to="/products?sort=bestselling"
-                  className={({ isActive }) =>
-                    `nav-link-custom ${isActive ? "active" : ""}`
+                  className={() =>
+                    `nav-link-custom ${isBestSellersActive ? "active" : ""}`
                   }
                   onClick={closeNavbar}
                 >

@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
+import { QRCodeSVG } from "qrcode.react";
 import {
   Check,
   CheckCircle2,
@@ -90,8 +91,23 @@ export default function Checkout() {
   // Applied to totals when fresh; flat Settings rates are the fallback.
   const [liveQuote, setLiveQuote] = useState({ amount: null, pin: "", mode: "", loading: false });
 
-  // Payment is Razorpay-only (UPI / Cards / NetBanking / Wallets all processed
-  // securely through the Razorpay checkout — no other method is offered).
+  // Payment method: "razorpay" (UPI / cards / netbanking / wallets via
+  // Razorpay popup) or "qr" (pay to merchant QR, attach screenshot proof).
+  const [paymentMethod, setPaymentMethod] = useState("razorpay");
+
+  // Merchant QR config (Admin → Settings) + customer screenshot proof.
+  const [qrConfig, setQrConfig] = useState({ upi_id: "", payee_name: "Printynozzle", image_url: "" });
+  const [qrScreenshot, setQrScreenshot] = useState(null);
+  const [qrPreview, setQrPreview] = useState("");
+  const [qrUploading, setQrUploading] = useState(false);
+  // Bundled merchant QR (client/public/images/payment-qr.jpg) is the fallback
+  // until the admin uploads a QR from Settings. Hidden if the file is missing.
+  const [qrImgError, setQrImgError] = useState(false);
+  const qrImgSrc = qrConfig.image_url || "/images/payment-qr.jpg";
+
+  useEffect(() => {
+    setQrImgError(false);
+  }, [qrConfig.image_url]);
 
   // Coupon State
   const [couponCode, setCouponCode] = useState("");
@@ -159,6 +175,13 @@ export default function Checkout() {
         setServerDiscount(Number(checkout.discount || serverCart.discount || 0));
         setServerTax(Number(serverCart.taxAmount || 0));
         setAppliedCouponCode(checkout.coupon?.code || serverCart.coupon?.code || "");
+        if (checkout.qrPayment) {
+          setQrConfig({
+            upi_id: checkout.qrPayment.upi_id || "",
+            payee_name: checkout.qrPayment.payee_name || "Printynozzle",
+            image_url: checkout.qrPayment.image_url || "",
+          });
+        }
         if (checkout.gstRate || checkout.freeShippingThreshold || checkout.shippingOptions) {
           setStoreConfig((prev) => ({
             gstRate: Number(checkout.gstRate || prev.gstRate),
@@ -260,6 +283,21 @@ export default function Checkout() {
     return +(subtotal - discount + gstTax + shippingFee).toFixed(2);
   }, [subtotal, discount, gstTax, shippingFee]);
 
+  // Dynamic UPI QR: scanning it opens any UPI app with the payee AND the
+  // exact order total pre-filled — no manual amount typing.
+  const upiPayUrl = useMemo(() => {
+    const pa = String(qrConfig.upi_id || "").trim();
+    if (!pa) return "";
+    const params = new URLSearchParams({
+      pa,
+      pn: String(qrConfig.payee_name || "Printynozzle").trim() || "Printynozzle",
+      am: Number(grandTotal || 0).toFixed(2),
+      cu: "INR",
+      tn: "Printynozzle store payment",
+    });
+    return `upi://pay?${params.toString()}`;
+  }, [qrConfig.upi_id, qrConfig.payee_name, grandTotal]);
+
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
@@ -341,7 +379,7 @@ export default function Checkout() {
       document.body.appendChild(script);
     });
 
-  const buildOrderPayload = () => ({
+  const buildOrderPayload = (extra = {}) => ({
     shipping_name: formData.fullName,
     shipping_phone: formData.phoneNumber,
     shipping_email: formData.emailAddress,
@@ -352,9 +390,35 @@ export default function Checkout() {
     shipping_pincode: formData.pincode,
     shipping_country: formData.country,
     delivery_option: shippingOption,
-    // Razorpay-only checkout — stored as a generic online payment.
-    payment_method: "upi",
+    // Razorpay orders store a generic online method; QR stores "qr".
+    payment_method: paymentMethod === "qr" ? "qr" : "upi",
+    ...extra,
   });
+
+  const handleQrScreenshotSelect = (file) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please attach an image file (JPG, PNG, WebP).");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Screenshot must be under 5MB.");
+      return;
+    }
+    if (qrPreview) URL.revokeObjectURL(qrPreview);
+    setQrScreenshot(file);
+    setQrPreview(URL.createObjectURL(file));
+  };
+
+  const copyUpiId = async () => {
+    if (!qrConfig.upi_id) return;
+    try {
+      await navigator.clipboard.writeText(qrConfig.upi_id);
+      toast.success("UPI ID copied");
+    } catch {
+      toast.error("Copy failed");
+    }
+  };
 
   // Persist the typed checkout address into My Profile → My Addresses.
   // Skips saving when the exact same address is already stored, so repeat
@@ -472,6 +536,56 @@ export default function Checkout() {
 
     setPlacingOrder(true);
     try {
+      // ── Pay-with-QR flow: screenshot is mandatory — the order is placed
+      // only after the customer pays and attaches the payment proof. ──
+      if (paymentMethod === "qr") {
+        if (!qrScreenshot) {
+          toast.warn("Please pay using the QR code and attach your payment screenshot.");
+          setPlacingOrder(false);
+          return;
+        }
+        let screenshotUrl = "";
+        try {
+          setQrUploading(true);
+          const uploadResponse = await checkoutService.uploadPaymentScreenshot(qrScreenshot);
+          screenshotUrl = uploadResponse.data?.screenshot?.url || "";
+          if (!screenshotUrl) throw new Error("Upload failed");
+        } catch (uploadError) {
+          toast.error(uploadError?.response?.data?.message || "Screenshot upload failed. Please try again.");
+          return;
+        } finally {
+          setQrUploading(false);
+        }
+
+        let placedOrder;
+        try {
+          const orderResponse = await checkoutService.placeOrder(
+            buildOrderPayload({ payment_screenshot_url: screenshotUrl })
+          );
+          placedOrder = orderResponse.data.order;
+        } catch (orderError) {
+          toast.error(orderError?.response?.data?.message || "Order creation failed. No order was placed.");
+          return;
+        }
+
+        // Stock is now reserved — clear the cart and persist the address.
+        localStorage.removeItem("printy_cart");
+        notifyCartChange();
+        await saveTypedAddress();
+
+        // Order placed + GST invoice emailed (same as COD); the payment is
+        // confirmed by the admin after verifying the screenshot.
+        setSuccessOrder({
+          order_number: placedOrder.order_number,
+          total: grandTotal,
+          payment_id: null,
+          email: formData.emailAddress,
+          pendingVerification: true,
+        });
+        setShowSuccessPopup(true);
+        return;
+      }
+
       // Razorpay gateway must be available before we start.
       const sdkLoaded = await loadRazorpayScript();
       if (!sdkLoaded) {
@@ -615,12 +729,17 @@ export default function Checkout() {
               <div className="pay-success-icon">
                 <CheckCircle2 size={54} strokeWidth={2.2} />
               </div>
-              <h2 className="pay-success-title">Payment Successful!</h2>
+              <h2 className="pay-success-title">{successOrder.pendingVerification ? "Order Placed!" : "Payment Successful!"}</h2>
               <p className="pay-success-sub">
-                Thank you! Your order <strong>#{successOrder.order_number}</strong> is confirmed.
+                Thank you! Your order <strong>#{successOrder.order_number}</strong> is {successOrder.pendingVerification ? "placed" : "confirmed"}.
+                {successOrder.pendingVerification ? (
+                  <>
+                    <br />Your payment screenshot has been received — our team will verify it and confirm your order shortly.
+                  </>
+                ) : null}
                 {successOrder.email ? (
                   <>
-                    <br />A confirmation email was sent to <strong>{successOrder.email}</strong>.
+                    <br />A confirmation email{successOrder.pendingVerification ? " with your invoice " : " "}was sent to <strong>{successOrder.email}</strong>.
                   </>
                 ) : null}
               </p>
@@ -630,7 +749,7 @@ export default function Checkout() {
                   <strong>#{successOrder.order_number}</strong>
                 </div>
                 <div className="pay-success-row">
-                  <span>Amount Paid</span>
+                  <span>{successOrder.pendingVerification ? "Order Total" : "Amount Paid"}</span>
                   <strong>₹{Number(successOrder.total || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
                 </div>
                 {successOrder.payment_id && (
@@ -991,28 +1110,150 @@ export default function Checkout() {
                 </div>
               </div>
 
-              {/* Card 3: Payment Method (Razorpay only) */}
+              {/* Card 3: Payment Method */}
               <div className="checkout-card">
                 <div className="checkout-card-header">
                   <h2 className="checkout-card-title">Payment Method</h2>
-                  <p className="checkout-card-sub">100% secure online payment via Razorpay</p>
+                  <p className="checkout-card-sub">Choose how you want to pay</p>
                 </div>
 
-                <div className="razorpay-only-box">
-                  <div className="razorpay-only-badge">
-                    <Lock size={18} />
-                    <div>
-                      <span className="razorpay-only-title">Razorpay Secure Checkout</span>
-                      <span className="razorpay-only-sub">
-                        Pay with UPI, credit / debit cards, net banking or wallets — all inside Razorpay's protected popup. No card details are ever stored on our servers.
-                      </span>
+                <div className="shipping-options-list">
+                  {/* Option 1: Razorpay */}
+                  <div
+                    className={`shipping-option-item ${paymentMethod === "razorpay" ? "selected" : ""}`}
+                    onClick={() => setPaymentMethod("razorpay")}
+                  >
+                    <div className="shipping-opt-left">
+                      <div className="shipping-radio-dot">
+                        <div className="shipping-radio-inner" />
+                      </div>
+                      <div className="shipping-opt-icon">
+                        <Lock size={20} />
+                      </div>
+                      <div className="shipping-opt-info">
+                        <span className="shipping-opt-title">Online Payment</span>
+                        <span className="shipping-opt-time">UPI, cards, net banking &amp; wallets via Razorpay</span>
+                      </div>
                     </div>
                   </div>
-                  <div className="razorpay-only-note">
-                    <ShieldCheck size={15} />
-                    <span>256-bit SSL encrypted • PCI-DSS compliant • Instant email confirmation after payment</span>
+
+                  {/* Option 2: Pay with QR */}
+                  <div
+                    className={`shipping-option-item ${paymentMethod === "qr" ? "selected" : ""}`}
+                    onClick={() => setPaymentMethod("qr")}
+                  >
+                    <div className="shipping-opt-left">
+                      <div className="shipping-radio-dot">
+                        <div className="shipping-radio-inner" />
+                      </div>
+                      <div className="shipping-opt-icon">
+                        <Tag size={20} />
+                      </div>
+                      <div className="shipping-opt-info">
+                        <span className="shipping-opt-title">Pay with QR</span>
+                        <span className="shipping-opt-time">Scan, pay &amp; attach payment screenshot</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
+
+                {paymentMethod === "razorpay" && (
+                  <div className="razorpay-only-box" style={{ marginTop: "14px" }}>
+                    <div className="razorpay-only-badge">
+                      <Lock size={18} />
+                      <div>
+                        <span className="razorpay-only-title">Razorpay Secure Checkout</span>
+                        <span className="razorpay-only-sub">
+                          Pay with UPI, credit / debit cards, net banking or wallets — all inside Razorpay's protected popup. No card details are ever stored on our servers.
+                        </span>
+                      </div>
+                    </div>
+                    <div className="razorpay-only-note">
+                      <ShieldCheck size={15} />
+                      <span>256-bit SSL encrypted • PCI-DSS compliant • Instant email confirmation after payment</span>
+                    </div>
+                  </div>
+                )}
+
+                {paymentMethod === "qr" && (
+                  <div className="qr-pay-box">
+                    <div className="qr-pay-steps">Step 1 — Scan the QR and pay ₹{grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                    <div className="qr-pay-qr-wrap">
+                      {upiPayUrl ? (
+                        <div className="qr-pay-dynamic">
+                          <QRCodeSVG
+                            value={upiPayUrl}
+                            size={220}
+                            level="M"
+                            className="qr-pay-img"
+                          />
+                          <span className="qr-pay-amount-note">
+                            Scan with any UPI app — ₹{Number(grandTotal || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} comes pre-filled
+                          </span>
+                        </div>
+                      ) : !qrImgError ? (
+                        <img
+                          src={qrImgSrc}
+                          alt="Payment QR code"
+                          className="qr-pay-img"
+                          onError={() => setQrImgError(true)}
+                        />
+                      ) : (
+                        <div className="qr-pay-noimg">
+                          <span>QR code will appear here once the store adds it.</span>
+                          {qrConfig.upi_id && <strong>Pay to UPI ID below</strong>}
+                        </div>
+                      )}
+                    </div>
+                    {(qrConfig.upi_id || qrConfig.payee_name) && (
+                      <div className="qr-pay-upi-row">
+                        <div className="qr-pay-upi-meta">
+                          <span className="qr-pay-payee">{qrConfig.payee_name || "Printynozzle"}</span>
+                          {qrConfig.upi_id && <span className="upi-id-badge">UPI ID: {qrConfig.upi_id}</span>}
+                        </div>
+                        {qrConfig.upi_id && (
+                          <button type="button" className="btn-check-pincode" onClick={copyUpiId}>
+                            Copy ID
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    <div className="qr-pay-steps">Step 2 — Attach your payment screenshot below, then place the order</div>
+                    <label className="qr-pay-upload">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        hidden
+                        onChange={(e) => {
+                          if (e.target.files?.[0]) handleQrScreenshotSelect(e.target.files[0]);
+                          e.target.value = "";
+                        }}
+                      />
+                      <span className="qr-pay-upload-btn">Choose Screenshot</span>
+                      <span className="qr-pay-upload-hint">JPG, PNG or WebP • Max 5MB</span>
+                    </label>
+                    {qrPreview && (
+                      <div className="qr-pay-preview-row">
+                        <img src={qrPreview} alt="Payment screenshot preview" className="qr-pay-preview" />
+                        <button
+                          type="button"
+                          className="cart-coupon-remove"
+                          onClick={() => {
+                            if (qrPreview) URL.revokeObjectURL(qrPreview);
+                            setQrPreview("");
+                            setQrScreenshot(null);
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    )}
+                    <div className="razorpay-only-note">
+                      <ShieldCheck size={15} />
+                      <span>Your order is placed only after the screenshot is attached. Our team verifies the payment and confirms your order.</span>
+                    </div>
+                  </div>
+                )}
               </div>
                     {/* Razorpay-only checkout — legacy method panels disabled */ false && (
                       <div>
@@ -1336,13 +1577,15 @@ export default function Checkout() {
                 </div>
               </div>
 
-              {/* Pay securely with Razorpay */}
-              <button type="submit" className="btn-checkout-primary" disabled={placingOrder}>
+              {/* Place order — Razorpay popup or QR + screenshot */}
+              <button type="submit" className="btn-checkout-primary" disabled={placingOrder || qrUploading}>
                 <Lock size={16} />
                 <span>
-                  {placingOrder
-                    ? "Processing Payment..."
-                    : `Pay ₹${grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Securely`}
+                  {placingOrder || qrUploading
+                    ? "Processing..."
+                    : paymentMethod === "qr"
+                      ? `Place Order • ₹${grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      : `Pay ₹${grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Securely`}
                 </span>
                 <ArrowRight size={18} />
               </button>

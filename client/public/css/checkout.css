@@ -1113,6 +1113,135 @@
 }
 
 /* --------------------------------------------------------------------------
+   PAY WITH QR PANEL
+   -------------------------------------------------------------------------- */
+.qr-pay-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 14px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.qr-pay-steps {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.qr-pay-qr-wrap {
+  display: flex;
+  justify-content: center;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.qr-pay-img {
+  width: 220px;
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
+.qr-pay-dynamic {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.qr-pay-amount-note {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #15803d;
+  text-align: center;
+}
+
+.qr-pay-noimg {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  text-align: center;
+  font-size: 13px;
+  color: #64748b;
+  padding: 24px 12px;
+}
+
+.qr-pay-upi-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.qr-pay-upi-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.qr-pay-payee {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.qr-pay-upload {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px;
+  cursor: pointer;
+}
+
+.qr-pay-upload-btn {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #ffffff;
+  background: #2563eb;
+  border-radius: 8px;
+  padding: 9px 16px;
+}
+
+.qr-pay-upload-hint {
+  font-size: 12.5px;
+  color: #64748b;
+}
+
+.qr-pay-preview-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.qr-pay-preview {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+/* --------------------------------------------------------------------------
    PAYMENT SUCCESS POPUP
    -------------------------------------------------------------------------- */
 .pay-success-backdrop {

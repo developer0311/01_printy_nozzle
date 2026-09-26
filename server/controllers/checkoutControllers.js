@@ -11,6 +11,7 @@ const {
   generateInvoicePdf,
 } = require("../utils/invoice");
 const { triggerAutoShipment } = require("../utils/shippingSync");
+const { uploadFile } = require("../utils/cloudinaryUploader");
 require("dotenv").config();
 
 const razorpay = new Razorpay({
@@ -87,10 +88,17 @@ const initiateCheckout = async (req, res) => {
 
     // Get settings
     const [settings] = await db.query(
-      "SELECT setting_key, setting_value FROM site_settings WHERE setting_key IN ('free_shipping_threshold', 'gst_rate', 'standard_shipping_cost', 'express_shipping_cost')"
+      "SELECT setting_key, setting_value FROM site_settings WHERE setting_key IN ('free_shipping_threshold', 'gst_rate', 'standard_shipping_cost', 'express_shipping_cost', 'qr_upi_id', 'qr_payee_name', 'qr_image_url')"
     );
     const settingsMap = {};
-    settings.forEach((s) => (settingsMap[s.setting_key] = parseFloat(s.setting_value)));
+    settings.forEach((s) => {
+      // QR config is free text (UPI ID / image URL) — keep it raw.
+      if (["qr_upi_id", "qr_payee_name", "qr_image_url"].includes(s.setting_key)) {
+        settingsMap[s.setting_key] = s.setting_value || "";
+      } else {
+        settingsMap[s.setting_key] = parseFloat(s.setting_value);
+      }
+    });
 
     const gstRate = settingsMap.gst_rate || 18;
 
@@ -128,11 +136,43 @@ const initiateCheckout = async (req, res) => {
         coupon: couponInfo,
         savedAddresses: addresses,
         itemCount: items.length,
+        qrPayment: {
+          upi_id: settingsMap.qr_upi_id || "",
+          payee_name: settingsMap.qr_payee_name || "Printynozzle",
+          image_url: settingsMap.qr_image_url || "",
+        },
       },
     });
   } catch (error) {
     console.error("Initiate checkout error:", error);
     return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/* ===================== UPLOAD PAYMENT SCREENSHOT =====================
+ * QR / UPI payment proof. The order is only placed after the customer
+ * attaches this screenshot on the checkout page. */
+const uploadPaymentScreenshot = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "Please attach your payment screenshot (image file)" });
+    }
+
+    const result = await uploadFile({
+      filePath: req.file.path,
+      folder: "printynozzle/payments",
+      resourceType: "image",
+      publicId: `qr_pay_${Date.now()}_${Math.round(Math.random() * 1e4)}`,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Payment screenshot uploaded",
+      screenshot: { url: result.url, public_id: result.public_id },
+    });
+  } catch (error) {
+    console.error("Upload payment screenshot error:", error);
+    return res.status(500).json({ success: false, message: "Screenshot upload failed" });
   }
 };
 
@@ -351,4 +391,5 @@ module.exports = {
   initiateCheckout,
   createRazorpayOrder,
   verifyPayment,
+  uploadPaymentScreenshot,
 };

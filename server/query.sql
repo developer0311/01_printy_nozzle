@@ -284,9 +284,10 @@ CREATE TABLE IF NOT EXISTS orders (
   cancelled_at DATETIME DEFAULT NULL,
 
   -- Payment
-  payment_method ENUM('upi', 'card', 'net_banking', 'wallet', 'cod') DEFAULT 'cod',
+  payment_method ENUM('upi', 'card', 'net_banking', 'wallet', 'cod', 'qr') DEFAULT 'cod',
   payment_method_label VARCHAR(100) DEFAULT 'Cash on Delivery',
   payment_status ENUM('pending', 'paid', 'failed', 'refunded') DEFAULT 'pending',
+  payment_screenshot_url VARCHAR(500) DEFAULT NULL,
   razorpay_order_id VARCHAR(200) DEFAULT NULL,
   razorpay_payment_id VARCHAR(200) DEFAULT NULL,
   razorpay_signature VARCHAR(500) DEFAULT NULL,
@@ -470,7 +471,9 @@ CREATE TABLE IF NOT EXISTS printing_orders (
   
   -- Pricing
   estimated_weight DECIMAL(8,2) DEFAULT NULL,
+  print_time_hours DECIMAL(10,2) DEFAULT NULL,
   material_cost DECIMAL(10,2) NOT NULL,
+  time_cost DECIMAL(10,2) DEFAULT 0.00,
   color_cost DECIMAL(10,2) DEFAULT 0.00,
   finish_cost DECIMAL(10,2) DEFAULT 0.00,
   subtotal DECIMAL(10,2) NOT NULL,
@@ -486,8 +489,9 @@ CREATE TABLE IF NOT EXISTS printing_orders (
   shipping_pincode VARCHAR(10) DEFAULT NULL,
   
   -- Payment
-  payment_method ENUM('upi', 'card', 'net_banking', 'wallet', 'cod') DEFAULT 'cod',
+  payment_method ENUM('upi', 'card', 'net_banking', 'wallet', 'cod', 'qr') DEFAULT 'cod',
   payment_status ENUM('pending', 'paid', 'failed', 'refunded') DEFAULT 'pending',
+  payment_screenshot_url VARCHAR(500) DEFAULT NULL,
   razorpay_order_id VARCHAR(200) DEFAULT NULL,
   razorpay_payment_id VARCHAR(200) DEFAULT NULL,
   
@@ -606,7 +610,16 @@ INSERT INTO site_settings (setting_key, setting_value, setting_type, description
 ('business_hours', 'Mon - Sat: 10:00 AM - 7:00 PM | Sunday: Closed', 'string', 'Working Hours'),
 ('smooth_finish_per_gram', '3', 'number', 'Extra cost per gram for smooth finish'),
 ('printing_delivery_days', '3 - 5 Working Days', 'string', 'Estimated delivery window shown on the 3D printing page'),
-('printing_delivery_region', 'Across India', 'string', 'Delivery region shown on the 3D printing page')
+('printing_delivery_region', 'Across India', 'string', 'Delivery region shown on the 3D printing page'),
+('print_hours_per_gram', '0.15', 'number', 'Print hours estimated per gram of filament'),
+('print_rate_0_5', '50', 'number', 'Printing charge Rs/hour for 0-5 hours'),
+('print_rate_5_10', '45', 'number', 'Printing charge Rs/hour for 5-10 hours'),
+('print_rate_10_20', '40', 'number', 'Printing charge Rs/hour for 10-20 hours'),
+('print_rate_20_plus', '35', 'number', 'Printing charge Rs/hour for 20+ hours'),
+('print_time_slabs', '[{"min":0,"max":5,"rate":50},{"min":5,"max":10,"rate":45},{"min":10,"max":20,"rate":40},{"min":20,"max":null,"rate":35}]', 'json', 'Hourly printing charge slabs (edited from 3D Printing > Hourly Rates)'),
+('qr_upi_id', 'ashitrajbanshi447-3@okicici', 'string', 'UPI ID shown on the checkout QR payment option'),
+('qr_payee_name', 'Ashit Rajbanshi', 'string', 'Payee name shown on the checkout QR payment option'),
+('qr_image_url', '', 'string', 'Merchant QR code image URL (uploaded from Admin Settings)')
 ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value);
 
 -- Default Categories
@@ -635,13 +648,17 @@ INSERT INTO brands (name, slug) VALUES
 ('SparkFun', 'sparkfun')
 ON DUPLICATE KEY UPDATE name = VALUES(name);
 
--- 3D Printing Materials
+-- 3D Printing Materials — Printynozzle Selling Rate Chart (₹/g, admin editable)
 INSERT INTO printing_materials (name, slug, code, description, price_per_gram, density_g_cm3, best_for, sort_order) VALUES
-('PLA', 'pla', 'PLA', 'Easy to print, eco-friendly and great for everyday use.', 12.00, 1.24, 'Prototypes, Decor, Toys', 1),
-('PETG', 'petg', 'PETG', 'Strong, durable and resistant to moisture and chemicals.', 15.00, 1.27, 'Functional parts, Enclosures', 2),
-('ABS', 'abs', 'ABS', 'Tough and heat resistant, ideal for functional applications.', 14.00, 1.04, 'Mechanical parts, Tools', 3),
-('TPU', 'tpu', 'TPU', 'Flexible, rubber-like material with great durability.', 18.00, 1.21, 'Wearables, Gaskets, Flexible parts', 4)
-ON DUPLICATE KEY UPDATE name = VALUES(name);
+('PLA', 'pla', 'PLA', 'Easy to print, eco-friendly and great for everyday use.', 4.50, 1.24, 'Prototypes, Decor, Toys', 1),
+('PLA+', 'pla-plus', 'PLA+', 'Upgraded PLA with higher toughness for functional prints.', 4.50, 1.24, 'Functional prototypes, Toys', 2),
+('PLA Matte', 'pla-matte', 'PLA-MATTE', 'Matte surface finish, hides layer lines for display models.', 6.00, 1.24, 'Display models, Decor', 3),
+('PETG', 'petg', 'PETG', 'Strong, durable and resistant to moisture and chemicals.', 5.50, 1.27, 'Functional parts, Enclosures', 4),
+('PETG HS', 'petg-hs', 'PETG-HS', 'High-speed PETG tuned for faster printing.', 5.50, 1.27, 'Functional parts, Fast prints', 5),
+('ASA', 'asa', 'ASA', 'UV-stable and heat resistant for outdoor parts.', 8.00, 1.07, 'Outdoor parts, Automotive', 6),
+('TPU 95A', 'tpu-95a', 'TPU-95A', 'Flexible, rubber-like material with great durability.', 10.00, 1.21, 'Wearables, Gaskets, Flexible parts', 7),
+('ABS', 'abs', 'ABS', 'Tough and heat resistant, ideal for functional applications.', 8.00, 1.04, 'Mechanical parts, Tools', 8)
+ON DUPLICATE KEY UPDATE price_per_gram = VALUES(price_per_gram), density_g_cm3 = VALUES(density_g_cm3), best_for = VALUES(best_for), code = VALUES(code), description = VALUES(description);
 
 -- 3D Printing Colors
 INSERT INTO printing_colors (name, hex_code, sort_order) VALUES

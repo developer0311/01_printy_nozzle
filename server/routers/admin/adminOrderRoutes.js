@@ -4,6 +4,7 @@ const {
   getAllOrders,
   getOrderDetails,
   updateOrderStatus,
+  verifyQrPayment,
   createManualInvoice,
   listManualInvoices,
   getManualInvoice,
@@ -26,5 +27,6 @@ router.delete("/manual-invoices/:id", deleteManualInvoice);
 router.get("/:id/invoice", getOrderInvoice);
 router.get("/:id", getOrderDetails);
 router.put("/:id/status", updateOrderStatus);
+router.put("/:id/verify-payment", verifyQrPayment);
 
 module.exports = router;

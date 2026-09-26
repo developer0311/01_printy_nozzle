@@ -12,6 +12,7 @@ const ensureDir = (dir) => {
 ensureDir("uploads/products");
 ensureDir("uploads/banners");
 ensureDir("uploads/prints");
+ensureDir("uploads/payments");
 
 /* ============ Product Image Upload ============ */
 const productImageStorage = multer.diskStorage({
@@ -81,8 +82,32 @@ const printFileUpload = multer({
   },
 });
 
+/* ============ Payment Screenshot Upload (QR / UPI proof) ============ */
+const paymentScreenshotStorage = multer.diskStorage({
+  destination: "uploads/payments/",
+  filename: (req, file, cb) => {
+    const uniqueName = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, uniqueName + path.extname(file.originalname));
+  },
+});
+
+const paymentScreenshotUpload = multer({
+  storage: paymentScreenshotStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|webp/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    if (extname && mimetype) {
+      return cb(null, true);
+    }
+    cb(new Error("Only image files are allowed (jpeg, jpg, png, gif, webp)"));
+  },
+});
+
 module.exports = {
   productImageUpload,
   bannerImageUpload,
   printFileUpload,
+  paymentScreenshotUpload,
 };
