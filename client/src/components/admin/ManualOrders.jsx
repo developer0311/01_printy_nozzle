@@ -44,6 +44,7 @@ const blankForm = () => ({
   discount: "",
   roundTotal: "",
   amountPaid: "",
+  showSeal: true,
   payMethod: "Cash",
   payStatus: "PAID",
   pickerCategory: "all",
@@ -132,6 +133,8 @@ function ManualOrders({ categories = [], brands = [], products = [], materials =
           color_name: q.color_name || q.custom_color_hex || "",
           infill_density: "",
           surface_finish: "standard",
+          filament_weight_grams: "",
+          print_time_hours: "",
         },
       ],
     });
@@ -300,6 +303,8 @@ function ManualOrders({ categories = [], brands = [], products = [], materials =
           color_name: "",
           infill_density: "",
           surface_finish: "standard",
+          filament_weight_grams: "",
+          print_time_hours: "",
         },
       ],
     }));
@@ -324,6 +329,8 @@ function ManualOrders({ categories = [], brands = [], products = [], materials =
           color_name: "",
           infill_density: "50",
           surface_finish: "standard",
+          filament_weight_grams: "",
+          print_time_hours: "",
         },
       ],
     }));
@@ -348,6 +355,8 @@ function ManualOrders({ categories = [], brands = [], products = [], materials =
           color_name: "",
           infill_density: "",
           surface_finish: "",
+          filament_weight_grams: "",
+          print_time_hours: "",
         },
       ],
     }));
@@ -361,6 +370,25 @@ function ManualOrders({ categories = [], brands = [], products = [], materials =
         const next = { ...it, ...patch };
         if (recomposePrint && next.item_type === "print" && !("description" in patch)) {
           next.description = composePrintDescription(next);
+        }
+        // Auto-suggest the rate from filament weight + print time while the
+        // rate is still empty (never overwrites a manually entered rate).
+        // Material part uses the material's ₹/gram; time uses the standard ₹40/h slab.
+        if (
+          next.item_type === "print" &&
+          (patch.filament_weight_grams !== undefined ||
+            patch.print_time_hours !== undefined ||
+            patch.material_name !== undefined) &&
+          (next.rate === "" || next.rate === undefined || next.rate === null)
+        ) {
+          const mat = (materials || []).find(
+            (m) => String(m.name || "").toLowerCase() === String(next.material_name || "").toLowerCase()
+          );
+          const grams = Number(next.filament_weight_grams) || 0;
+          const hours = Number(next.print_time_hours) || 0;
+          if (mat && Number(mat.price_per_gram) > 0 && (grams > 0 || hours > 0)) {
+            next.rate = Math.round((grams * Number(mat.price_per_gram) + hours * 40) * 100) / 100;
+          }
         }
         return next;
       }),
@@ -461,12 +489,15 @@ function ManualOrders({ categories = [], brands = [], products = [], materials =
       color_name: it.color_name || "",
       infill_density: it.infill_density ? Number(it.infill_density) : null,
       surface_finish: it.surface_finish || "",
+      filament_weight_grams: it.filament_weight_grams !== "" && it.filament_weight_grams != null ? Number(it.filament_weight_grams) : null,
+      print_time_hours: it.print_time_hours !== "" && it.print_time_hours != null ? Number(it.print_time_hours) : null,
     })),
     shippingCost: Number(form.shippingCost) || 0,
     deliveryOption: form.deliveryOption,
     discount: Number(form.discount) || 0,
     roundTotal: form.roundTotal === "" ? null : Number(form.roundTotal),
     amountPaid: Number(form.amountPaid) || 0,
+    showSeal: form.showSeal !== false,
     payment: { methodLabel: form.payMethod, status: form.payStatus },
   });
 
@@ -571,12 +602,15 @@ function ManualOrders({ categories = [], brands = [], products = [], materials =
           color_name: it.color_name || "",
           infill_density: it.infill_density ?? "",
           surface_finish: it.surface_finish || "standard",
+          filament_weight_grams: it.filament_weight_grams ?? "",
+          print_time_hours: it.print_time_hours ?? "",
         })),
         deliveryOption: d.delivery_option || "standard",
         shippingCost: d.shipping_cost ?? "",
         discount: d.discount ?? "",
         roundTotal: d.round_total ?? "",
         amountPaid: d.amount_paid ?? "",
+        showSeal: d.show_seal === undefined || d.show_seal === null ? true : Number(d.show_seal) === 1,
         payMethod: d.payment_method || "Cash",
         payStatus: d.payment_status || "PAID",
       });
@@ -877,6 +911,11 @@ function ManualOrders({ categories = [], brands = [], products = [], materials =
                   <option>PENDING</option>
                 </select>
               </label>
+              <label className="seal-toggle" style={{ gridColumn: "1 / -1" }} title="Print the authorised signatory seal at the bottom-right of the invoice">
+                <input type="checkbox" className="seal-toggle-input" checked={!!form.showSeal} onChange={(e) => set({ showSeal: e.target.checked })} />
+                <span className="seal-track"><span className="seal-knob" /></span>
+                <span>Show authorised seal on invoice</span>
+              </label>
             </div>
           </div>
 
@@ -948,6 +987,8 @@ function ManualOrders({ categories = [], brands = [], products = [], materials =
                           <option value="standard">Standard</option>
                           <option value="smooth">Smooth</option>
                         </select>
+                        <input type="number" min="0" step="0.01" placeholder="Filament (g)" title="Filament weight in grams — auto-fills the rate" value={it.filament_weight_grams} onChange={(e) => updateRow(it.key, { filament_weight_grams: e.target.value }, true)} />
+                        <input type="number" min="0" step="0.01" placeholder="Time (hrs)" title="Printing time in hours — auto-fills the rate" value={it.print_time_hours} onChange={(e) => updateRow(it.key, { print_time_hours: e.target.value }, true)} />
                       </div>
                     )}
                     <div className="manual-item-row">
@@ -1095,6 +1136,11 @@ function ManualOrders({ categories = [], brands = [], products = [], materials =
                           {(expandedDetail.items || []).map((it) => (
                             <p key={it.id}>
                               <em className={`manual-type-pill ${it.item_type}`}>{it.item_type}</em> {it.description} — {it.qty} × Rs. {it.rate} = {money(it.total)}
+                              {(it.filament_weight_grams != null || it.print_time_hours != null) && (
+                                <span className="admin-print-sub">
+                                  {" "}• {it.filament_weight_grams != null ? `${it.filament_weight_grams}g` : "—"} • {it.print_time_hours != null ? `${it.print_time_hours}h` : "—"}
+                                </span>
+                              )}
                             </p>
                           ))}
                           <p>

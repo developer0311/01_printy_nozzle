@@ -295,6 +295,7 @@ const buildOrderInvoiceData = ({ order, items = [], settings }) => {
     discount,
     taxTotal,
     grandTotal,
+    showSeal: true,
     amountWords: amountInWords(grandTotal),
   };
 };
@@ -316,9 +317,14 @@ const buildPrintInvoiceData = ({ prints = [], settings, shippingCost = 0, delive
     const spec = [p.material_name, p.color_name || p.custom_color_hex, p.infill_density ? `${p.infill_density}%` : null, p.surface_finish]
       .filter(Boolean)
       .join(" • ");
+    // Print specs from the order row — appended once (never duplicated).
+    const specBits = [];
+    if (p.estimated_weight != null && p.estimated_weight !== "") specBits.push(`${p.estimated_weight}g`);
+    if (p.print_time_hours != null && p.print_time_hours !== "") specBits.push(`${p.print_time_hours}h`);
+    const specs = [spec, specBits.length ? specBits.join(" • ") : ""].filter(Boolean).join(" • ");
     return {
       sno: idx + 1,
-      description: `3D Print: ${p.file_name || "model"}${spec ? ` — ${spec}` : ""}`,
+      description: `3D Print: ${p.file_name || "model"}${specs ? ` — ${specs}` : ""}`,
       hsn: hsns.print,
       rate: unit,
       qty,
@@ -395,6 +401,7 @@ const buildPrintInvoiceData = ({ prints = [], settings, shippingCost = 0, delive
     discount: 0,
     taxTotal,
     grandTotal,
+    showSeal: true,
     amountWords: amountInWords(grandTotal),
   };
 };
@@ -443,6 +450,7 @@ const buildManualInvoiceData = ({
   discount = 0,
   roundTotal = null,
   amountPaid = 0,
+  showSeal = true,
   payment = {},
   settings,
 }) => {
@@ -495,9 +503,22 @@ const buildManualInvoiceData = ({
     const amount = round2(gross - disc);
     const tax = round2((amount * taxRate) / 100);
     const fallbackHsn = it.item_type === "print" ? hsns.print : hsns.product;
+    // Admin-entered print specs ride along in the description line — exactly
+    // once. Any specs already typed at the end of the description are
+    // stripped first so re-saves/edits can never duplicate them.
+    const specBits = [];
+    const fwGrams = it.filamentWeightGrams ?? it.filament_weight_grams;
+    const ptHours = it.printTimeHours ?? it.print_time_hours;
+    if (fwGrams != null && fwGrams !== "") specBits.push(`${fwGrams}g`);
+    if (ptHours != null && ptHours !== "") specBits.push(`${ptHours}h`);
+    const rawDesc = clean(it.description) || `Item ${idx + 1}`;
+    const baseDesc = rawDesc
+      .replace(/\s*[•·-]\s*\d+(?:\.\d+)?g\s*[•·]\s*\d+(?:\.\d+)?h\s*$/i, "")
+      .replace(/\s*[•·-]\s*\d+(?:\.\d+)?(?:g|h)\s*$/i, "")
+      .trim() || rawDesc;
     return {
       sno: idx + 1,
-      description: clean(it.description) || `Item ${idx + 1}`,
+      description: specBits.length ? `${baseDesc} • ${specBits.join(" • ")}` : baseDesc,
       hsn: clean(it.hsn) || fallbackHsn,
       rate: unit,
       qty,
@@ -579,6 +600,7 @@ const buildManualInvoiceData = ({
     grandTotal,
     amountPaid: round2(amountPaidNum),
     pendingAmount,
+    showSeal: showSeal !== false,
     amountWords: amountInWords(grandTotal),
   };
 };
@@ -988,17 +1010,55 @@ const generateInvoicePdf = (data) =>
       });
 
       y += 8;
-      if (y + 40 > BOTTOM) {
+
+      /* ---------- Closing lines + authorised signatory seal ----------
+       * The seal docks bottom-right BESIDE the closing lines (never on its
+       * own page). Automatic invoices always carry it; manual invoices only
+       * when the admin's "show seal" toggle is on (data.showSeal). A
+       * missing/unreadable image must never break the invoice. */
+      let sealImg = null;
+      let sealW = 0;
+      let sealH = 0;
+      if (data.showSeal) {
+        try {
+          const SEAL_PATH = path.join(__dirname, "..", "assets", "Printynozzle Authorised Signatory Seal.png");
+          if (fs.existsSync(SEAL_PATH)) {
+            sealW = 100;
+            sealImg = doc.openImage(SEAL_PATH);
+            sealH = Math.round((sealImg.height / sealImg.width) * sealW) || 100;
+          }
+        } catch {
+          sealImg = null;
+        }
+      }
+      const sealGap = sealImg ? sealW + 16 : 0;
+      const closeW = CONTENT_W - sealGap;
+      doc.font("Helvetica-Bold").fontSize(8).fillColor(INK);
+      const closeH1 = doc.heightOfString("This is a computer generated Invoice.", { width: closeW, align: "center" });
+      const closeH2 = doc.heightOfString(`Subject to ${data.jurisdiction} Jurisdiction`, { width: closeW, align: "center" });
+      const closeTextH = closeH1 + 8 + closeH2;
+      const sealBlockH = sealImg ? sealH + 14 : 0;
+      const closeH = Math.max(closeTextH, sealBlockH);
+      if (y + closeH > BOTTOM) {
         doc.addPage();
         y = TOP;
       }
+      const closeY = y;
       doc.font("Helvetica-Bold").fontSize(8).fillColor(INK);
-      doc.text("This is a computer generated Invoice.", MARGIN, y, { width: CONTENT_W, align: "center" });
-      y = doc.y + 8;
-      doc.text(`Subject to ${data.jurisdiction} Jurisdiction`, MARGIN, y, {
-        width: CONTENT_W,
+      doc.text("This is a computer generated Invoice.", MARGIN, closeY, { width: closeW, align: "center" });
+      doc.text(`Subject to ${data.jurisdiction} Jurisdiction`, MARGIN, closeY + closeH1 + 8, {
+        width: closeW,
         align: "center",
       });
+      if (sealImg) {
+        const sealX = PAGE_W - MARGIN - sealW;
+        // Vertically centre the seal against the closing text block.
+        const sealY = closeY + Math.max(0, (closeTextH - sealBlockH) / 2);
+        doc.image(sealImg, sealX, sealY, { width: sealW });
+        doc.font("Helvetica").fontSize(7).fillColor(MUTED);
+        doc.text("Authorised Signatory", sealX, sealY + sealH + 3, { width: sealW, align: "center" });
+      }
+      y = closeY + closeH + 6;
 
       /* ---------- Footers with page numbers ---------- */
       const range = doc.bufferedPageRange();

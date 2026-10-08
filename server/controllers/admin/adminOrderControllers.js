@@ -74,6 +74,14 @@ const validateManualPayload = (body = {}) => {
     if (it.disc !== undefined && it.disc !== "" && !(Number(it.disc) >= 0)) {
       return `Item ${i + 1}: enter a valid discount`;
     }
+    for (const [key, label] of [
+      ["filament_weight_grams", "filament weight"],
+      ["print_time_hours", "print time"],
+    ]) {
+      if (it[key] !== undefined && it[key] !== null && it[key] !== "" && !(Number(it[key]) >= 0)) {
+        return `Item ${i + 1}: enter a valid ${label}`;
+      }
+    }
   }
 
   const rateNum = Number(gstRate);
@@ -137,11 +145,14 @@ const savedRowToInvoiceInput = (row, items) => ({
     rate: Number(it.rate),
     qty: Number(it.qty),
     disc: Number(it.disc),
+    filamentWeightGrams: it.filament_weight_grams != null && it.filament_weight_grams !== "" ? Number(it.filament_weight_grams) : null,
+    printTimeHours: it.print_time_hours != null && it.print_time_hours !== "" ? Number(it.print_time_hours) : null,
   })),
   shippingCost: Number(row.shipping_cost),
   deliveryOption: row.delivery_option,
   discount: Number(row.discount),
   amountPaid: Number(row.amount_paid ?? 0),
+  showSeal: row.show_seal === undefined || row.show_seal === null ? true : Number(row.show_seal) !== 0,
   payment: { methodLabel: row.payment_method, status: row.payment_status },
 });
 
@@ -315,6 +326,7 @@ const createManualInvoice = async (req, res) => {
       discount = 0,
       roundTotal = null,
       amountPaid = 0,
+      showSeal = true,
       payment = {},
     } = req.body || {};
 
@@ -350,6 +362,7 @@ const createManualInvoice = async (req, res) => {
       discount,
       roundTotal: roundFigure,
       amountPaid,
+      showSeal: showSeal !== false,
       payment,
       settings,
     });
@@ -371,9 +384,9 @@ const createManualInvoice = async (req, res) => {
            billing_address1, billing_address2, billing_city, billing_state, billing_pincode, billing_country,
            shipping_same, shipping_name, shipping_email, shipping_phone,
            shipping_address1, shipping_address2, shipping_city, shipping_state, shipping_pincode, shipping_country,
-           gst_rate, subtotal, tax_total, discount, round_total, shipping_cost, grand_total, amount_paid,
+           gst_rate, subtotal, tax_total, discount, round_total, shipping_cost, grand_total, amount_paid, show_seal,
            delivery_option, payment_method, payment_status, amount_in_words, created_by)
-          VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           invoice.date || new Date().toISOString().slice(0, 10),
           manualStr(invoice.saleOrder) || null,
@@ -408,6 +421,7 @@ const createManualInvoice = async (req, res) => {
           Number(shippingCost) || 0,
           preview.grandTotal,
           preview.amountPaid,
+          showSeal !== false ? 1 : 0,
           manualStr(deliveryOption) || "standard",
           manualStr(payment.methodLabel) || manualStr(payment.method) || "Cash",
           (manualStr(payment.status) || "PAID").toUpperCase(),
@@ -450,8 +464,8 @@ const createManualInvoice = async (req, res) => {
           `INSERT INTO manual_invoice_items
             (invoice_id, item_type, product_id, description, hsn, rate, qty, disc,
              amount, tax, total, file_name, material_name, color_name, infill_density,
-             surface_finish, sort_order)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             filament_weight_grams, print_time_hours, surface_finish, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             invoiceId,
             ["product", "print", "custom"].includes(it.item_type) ? it.item_type : "product",
@@ -468,6 +482,8 @@ const createManualInvoice = async (req, res) => {
             manualStr(it.material_name) || null,
             manualStr(it.color_name) || null,
             it.infill_density ? Number(it.infill_density) : null,
+            it.filament_weight_grams !== undefined && it.filament_weight_grams !== null && it.filament_weight_grams !== "" ? Number(it.filament_weight_grams) : null,
+            it.print_time_hours !== undefined && it.print_time_hours !== null && it.print_time_hours !== "" ? Number(it.print_time_hours) : null,
             manualStr(it.surface_finish) || null,
             line.sno,
           ]
@@ -549,6 +565,7 @@ const updateManualInvoice = async (req, res) => {
       discount = 0,
       roundTotal = null,
       amountPaid = 0,
+      showSeal = true,
       payment = {},
     } = req.body || {};
 
@@ -585,6 +602,7 @@ const updateManualInvoice = async (req, res) => {
       discount,
       roundTotal: roundFigure,
       amountPaid,
+      showSeal: showSeal !== false,
       payment,
       settings,
     });
@@ -604,7 +622,7 @@ const updateManualInvoice = async (req, res) => {
           billing_address1 = ?, billing_address2 = ?, billing_city = ?, billing_state = ?, billing_pincode = ?, billing_country = ?,
           shipping_same = ?, shipping_name = ?, shipping_email = ?, shipping_phone = ?,
           shipping_address1 = ?, shipping_address2 = ?, shipping_city = ?, shipping_state = ?, shipping_pincode = ?, shipping_country = ?,
-          gst_rate = ?, subtotal = ?, tax_total = ?, discount = ?, round_total = ?, shipping_cost = ?, grand_total = ?, amount_paid = ?,
+          gst_rate = ?, subtotal = ?, tax_total = ?, discount = ?, round_total = ?, shipping_cost = ?, grand_total = ?, amount_paid = ?, show_seal = ?,
           delivery_option = ?, payment_method = ?, payment_status = ?, amount_in_words = ?
         WHERE id = ?`,
         [
@@ -642,6 +660,7 @@ const updateManualInvoice = async (req, res) => {
           Number(shippingCost) || 0,
           preview.grandTotal,
           preview.amountPaid,
+          showSeal !== false ? 1 : 0,
           manualStr(deliveryOption) || "standard",
           manualStr(payment.methodLabel) || manualStr(payment.method) || "Cash",
           (manualStr(payment.status) || "PAID").toUpperCase(),
@@ -668,8 +687,8 @@ const updateManualInvoice = async (req, res) => {
           `INSERT INTO manual_invoice_items
             (invoice_id, item_type, product_id, description, hsn, rate, qty, disc,
              amount, tax, total, file_name, material_name, color_name, infill_density,
-             surface_finish, sort_order)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             filament_weight_grams, print_time_hours, surface_finish, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             id,
             ["product", "print", "custom"].includes(it.item_type) ? it.item_type : "product",
@@ -686,6 +705,8 @@ const updateManualInvoice = async (req, res) => {
             manualStr(it.material_name) || null,
             manualStr(it.color_name) || null,
             it.infill_density ? Number(it.infill_density) : null,
+            it.filament_weight_grams !== undefined && it.filament_weight_grams !== null && it.filament_weight_grams !== "" ? Number(it.filament_weight_grams) : null,
+            it.print_time_hours !== undefined && it.print_time_hours !== null && it.print_time_hours !== "" ? Number(it.print_time_hours) : null,
             manualStr(it.surface_finish) || null,
             line.sno,
           ]

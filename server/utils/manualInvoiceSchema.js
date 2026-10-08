@@ -55,6 +55,7 @@ const ensureManualInvoiceSchema = async () => {
             shipping_cost DECIMAL(10,2) DEFAULT 0.00,
             grand_total DECIMAL(10,2) DEFAULT 0.00,
             amount_paid DECIMAL(10,2) DEFAULT 0.00,
+            show_seal TINYINT(1) DEFAULT 1,
             delivery_option VARCHAR(20) DEFAULT 'standard',
             payment_method VARCHAR(100) DEFAULT 'Cash',
             payment_status VARCHAR(20) DEFAULT 'PAID',
@@ -86,6 +87,8 @@ const ensureManualInvoiceSchema = async () => {
             material_name VARCHAR(100) DEFAULT NULL,
             color_name VARCHAR(100) DEFAULT NULL,
             infill_density INT DEFAULT NULL,
+            filament_weight_grams DECIMAL(10,2) DEFAULT NULL,
+            print_time_hours DECIMAL(10,2) DEFAULT NULL,
             surface_finish VARCHAR(20) DEFAULT NULL,
             sort_order INT DEFAULT 0,
             FOREIGN KEY (invoice_id) REFERENCES manual_invoices(id) ON DELETE CASCADE,
@@ -100,6 +103,7 @@ const ensureManualInvoiceSchema = async () => {
         for (const [col, def, after] of [
           ["round_total", "DECIMAL(10,2) DEFAULT NULL", "discount"],
           ["file_name", "VARCHAR(300) DEFAULT NULL", "invoice_number"],
+          ["show_seal", "TINYINT(1) DEFAULT 1", "grand_total"],
         ]) {
           try {
             const [exists] = await conn.query(
@@ -124,6 +128,23 @@ const ensureManualInvoiceSchema = async () => {
           }
         } catch (e) {
           console.warn(`⚠️ Could not add manual_invoices.amount_paid: ${e.message}`);
+        }
+        // Print-item extras (filament weight + print time) for older installs.
+        for (const [col, def, after] of [
+          ["filament_weight_grams", "DECIMAL(10,2) DEFAULT NULL", "infill_density"],
+          ["print_time_hours", "DECIMAL(10,2) DEFAULT NULL", "filament_weight_grams"],
+        ]) {
+          try {
+            const [exists] = await conn.query(
+              `SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'manual_invoice_items' AND COLUMN_NAME = '${col}' LIMIT 1`
+            );
+            if (!exists.length) {
+              await conn.query(`ALTER TABLE \`manual_invoice_items\` ADD COLUMN \`${col}\` ${def} AFTER \`${after}\``);
+              console.log(`🧾 manual_invoice_items.${col} column added`);
+            }
+          } catch (e) {
+            console.warn(`⚠️ Could not add manual_invoice_items.${col}: ${e.message}`);
+          }
         }
       } finally {
         conn.release();
