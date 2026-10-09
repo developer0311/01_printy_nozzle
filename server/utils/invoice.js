@@ -1013,50 +1013,88 @@ const generateInvoicePdf = (data) =>
 
       /* ---------- Closing lines + authorised signatory seal ----------
        * The seal docks bottom-right BESIDE the closing lines (never on its
-       * own page). Automatic invoices always carry it; manual invoices only
-       * when the admin's "show seal" toggle is on (data.showSeal). A
-       * missing/unreadable image must never break the invoice. */
+       * own page). It renders full-size when it fits; otherwise it shrinks
+       * to the remaining space (never below 55px wide) so typical invoices
+       * stay on one page. Only when even the shrunk seal cannot fit do the
+       * closing lines + seal move together to a fresh page. Automatic
+       * invoices always carry it; manual invoices only when the admin's
+       * "show seal" toggle is on (data.showSeal). A missing/unreadable
+       * image must never break the invoice. */
       let sealImg = null;
-      let sealW = 0;
-      let sealH = 0;
+      let sealAspect = 1;
       if (data.showSeal) {
         try {
           const SEAL_PATH = path.join(__dirname, "..", "assets", "Printynozzle Authorised Signatory Seal.png");
           if (fs.existsSync(SEAL_PATH)) {
-            sealW = 100;
             sealImg = doc.openImage(SEAL_PATH);
-            sealH = Math.round((sealImg.height / sealImg.width) * sealW) || 100;
+            if (sealImg.height > 0 && sealImg.width > 0) {
+              sealAspect = sealImg.height / sealImg.width;
+            } else {
+              sealImg = null;
+            }
           }
         } catch {
           sealImg = null;
         }
       }
-      const sealGap = sealImg ? sealW + 16 : 0;
-      const closeW = CONTENT_W - sealGap;
-      doc.font("Helvetica-Bold").fontSize(8).fillColor(INK);
-      const closeH1 = doc.heightOfString("This is a computer generated Invoice.", { width: closeW, align: "center" });
-      const closeH2 = doc.heightOfString(`Subject to ${data.jurisdiction} Jurisdiction`, { width: closeW, align: "center" });
-      const closeTextH = closeH1 + 8 + closeH2;
-      const sealBlockH = sealImg ? sealH + 14 : 0;
-      const closeH = Math.max(closeTextH, sealBlockH);
+      const FULL_SEAL_W = 100;
+      const MIN_SEAL_W = 55;
+      const fullSealH = Math.round(FULL_SEAL_W * sealAspect);
+      const captionH = (w) => {
+        doc.font("Helvetica").fontSize(7).fillColor(MUTED);
+        return doc.heightOfString("Authorised Signatory", { width: w, align: "center" });
+      };
+      const fullBlockH = fullSealH + 3 + captionH(FULL_SEAL_W);
+      const measureClose = (gapW) => {
+        const w = CONTENT_W - gapW;
+        doc.font("Helvetica-Bold").fontSize(8).fillColor(INK);
+        const h1 = doc.heightOfString("This is a computer generated Invoice.", { width: w, align: "center" });
+        const h2 = doc.heightOfString(`Subject to ${data.jurisdiction} Jurisdiction`, { width: w, align: "center" });
+        return { w, h1, h2, textH: h1 + 8 + h2 };
+      };
+      // Pass 1: full-size seal beside the closing lines.
+      let m = measureClose(sealImg ? FULL_SEAL_W + 16 : 0);
+      let useW = FULL_SEAL_W;
+      let useH = fullSealH;
+      let useCapH = captionH(FULL_SEAL_W);
+      let closeH = Math.max(m.textH, sealImg ? useH + 3 + useCapH : 0);
+      if (sealImg && y + closeH > BOTTOM) {
+        // Pass 2: shrink the seal to the remaining space (min 55px wide).
+        const availH = BOTTOM - y;
+        const fitH = availH - 3 - captionH(MIN_SEAL_W) - 2;
+        const fitW = Math.floor(fitH / sealAspect);
+        if (fitH >= 45 && fitW >= MIN_SEAL_W && fitW <= FULL_SEAL_W) {
+          useW = Math.min(fitW, FULL_SEAL_W);
+          useH = Math.round(useW * sealAspect);
+          useCapH = captionH(useW);
+          m = measureClose(useW + 16);
+          closeH = Math.max(m.textH, useH + 3 + useCapH);
+        }
+      }
       if (y + closeH > BOTTOM) {
         doc.addPage();
         y = TOP;
+        // Fresh page: back to full size.
+        useW = FULL_SEAL_W;
+        useH = fullSealH;
+        useCapH = captionH(FULL_SEAL_W);
+        m = measureClose(sealImg ? FULL_SEAL_W + 16 : 0);
+        closeH = Math.max(m.textH, sealImg ? useH + 3 + useCapH : 0);
       }
       const closeY = y;
       doc.font("Helvetica-Bold").fontSize(8).fillColor(INK);
-      doc.text("This is a computer generated Invoice.", MARGIN, closeY, { width: closeW, align: "center" });
-      doc.text(`Subject to ${data.jurisdiction} Jurisdiction`, MARGIN, closeY + closeH1 + 8, {
-        width: closeW,
+      doc.text("This is a computer generated Invoice.", MARGIN, closeY, { width: m.w, align: "center" });
+      doc.text(`Subject to ${data.jurisdiction} Jurisdiction`, MARGIN, closeY + m.h1 + 8, {
+        width: m.w,
         align: "center",
       });
       if (sealImg) {
-        const sealX = PAGE_W - MARGIN - sealW;
+        const sealX = PAGE_W - MARGIN - useW;
         // Vertically centre the seal against the closing text block.
-        const sealY = closeY + Math.max(0, (closeTextH - sealBlockH) / 2);
-        doc.image(sealImg, sealX, sealY, { width: sealW });
+        const sealY = closeY + Math.max(0, (m.textH - (useH + 3 + useCapH)) / 2);
+        doc.image(sealImg, sealX, sealY, { width: useW });
         doc.font("Helvetica").fontSize(7).fillColor(MUTED);
-        doc.text("Authorised Signatory", sealX, sealY + sealH + 3, { width: sealW, align: "center" });
+        doc.text("Authorised Signatory", sealX, sealY + useH + 3, { width: useW, align: "center" });
       }
       y = closeY + closeH + 6;
 
@@ -1071,7 +1109,7 @@ const generateInvoicePdf = (data) =>
         doc.strokeColor("#111827").lineWidth(1);
         doc.moveTo(MARGIN, 792).lineTo(PAGE_W - MARGIN, 792).stroke();
         doc.font("Helvetica").fontSize(7).fillColor(INK);
-        const bits = [data.company.name.toUpperCase(), data.company.phone, data.company.email]
+        const bits = ["DB ACCESSORIES LIMITED", data.company.phone, data.company.email]
           .filter(Boolean)
           .join("   •   ");
         const gstBit = data.company.gstin ? `   •   ${data.company.gstin}` : "";
