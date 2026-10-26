@@ -32,8 +32,31 @@ const getContactPageData = async (req, res) => {
         socialMap[s.setting_key] = s.setting_value;
       });
       socials = SOCIAL_META.filter(
-        (m) => socialMap[`social_${m.key}_enabled`] === "1" && (socialMap[`social_${m.key}_url`] || "").trim()
-      ).map((m) => ({ name: m.name, icon: m.icon, url: socialMap[`social_${m.key}_url`].trim() }));
+        (m) => String(socialMap[`social_${m.key}_enabled`]) === "1" && (socialMap[`social_${m.key}_url`] || "").trim()
+      ).map((m) => {
+        const rawUrl = (socialMap[`social_${m.key}_url`] || "").trim();
+        let finalUrl = rawUrl;
+
+        if (m.key === "whatsapp") {
+          if (!/^https?:\/\//i.test(rawUrl)) {
+            if (rawUrl.startsWith("wa.me/")) {
+              finalUrl = `https://${rawUrl}`;
+            } else {
+              const digits = rawUrl.replace(/[^0-9]/g, "");
+              finalUrl = digits ? `https://wa.me/${digits}` : rawUrl;
+            }
+          }
+        } else if (!/^https?:\/\//i.test(rawUrl)) {
+          finalUrl = `https://${rawUrl}`;
+        }
+
+        return {
+          key: m.key,
+          name: m.name,
+          icon: m.icon,
+          url: finalUrl,
+        };
+      });
     } catch {
       socials = [];
     }

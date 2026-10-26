@@ -20,12 +20,20 @@ const getSiteSettings = async (req, res) => {
 /* ===================== UPDATE SITE SETTINGS ===================== */
 const updateSiteSettings = async (req, res) => {
   try {
-    const settings = req.body; // e.g. { free_shipping_threshold: "500", gst_rate: "18", ... }
+    const settings = req.body || {};
 
-    for (const [key, value] of Object.entries(settings)) {
+    for (const [key, rawValue] of Object.entries(settings)) {
+      if (!key || typeof key !== "string") continue;
+      const value =
+        rawValue === null || rawValue === undefined
+          ? ""
+          : typeof rawValue === "object"
+          ? JSON.stringify(rawValue)
+          : String(rawValue);
+
       await db.query(
         "INSERT INTO site_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?",
-        [key, String(value), String(value)]
+        [key, value, value]
       );
     }
 

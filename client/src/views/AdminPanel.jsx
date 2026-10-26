@@ -2381,6 +2381,46 @@ function AdminPanel() {
     }
   };
 
+  const submitSocialSettings = async (event) => {
+    event.preventDefault();
+    setSettingsSaving(true);
+    try {
+      const cleaned = { ...settingsForm };
+      const platforms = ["facebook", "instagram", "youtube", "x", "linkedin", "whatsapp"];
+      platforms.forEach((p) => {
+        let val = (cleaned[`social_${p}_url`] || "").trim();
+        if (val) {
+          if (p === "whatsapp") {
+            if (!/^https?:\/\//i.test(val)) {
+              if (val.startsWith("wa.me/")) {
+                val = `https://${val}`;
+              } else if (/^[0-9+\s()-]+$/.test(val)) {
+                const digits = val.replace(/[^0-9]/g, "");
+                if (digits) val = `https://wa.me/${digits}`;
+              } else {
+                val = `https://${val}`;
+              }
+            }
+          } else if (!/^https?:\/\//i.test(val)) {
+            val = `https://${val}`;
+          }
+          cleaned[`social_${p}_url`] = val;
+        }
+      });
+      setSettingsForm(cleaned);
+      await adminService.updateSettings(cleaned);
+      toast.success("Social links saved successfully");
+      loadAdminData();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("socialSettingsUpdated"));
+      }
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Settings save failed");
+    } finally {
+      setSettingsSaving(false);
+    }
+  };
+
   const updateOrder = async (id, status) => {
     try {
       await adminService.updateOrderStatus(id, { status });
@@ -6625,7 +6665,7 @@ function AdminPanel() {
                       <p className="admin-panel-subtitle">Footer icons. Only toggled-on platforms with a URL are shown.</p>
                     </div>
                   </div>
-                  <form className="admin-form" onSubmit={submitSettings}>
+                  <form className="admin-form" onSubmit={submitSocialSettings}>
                     <div className="admin-list">
                       {[
                         { key: "facebook", label: "Facebook" },
@@ -6634,30 +6674,42 @@ function AdminPanel() {
                         { key: "x", label: "X (Twitter)" },
                         { key: "linkedin", label: "LinkedIn" },
                         { key: "whatsapp", label: "WhatsApp" },
-                      ].map((s) => (
-                        <div key={s.key} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                          <button
-                            type="button"
-                            className={`admin-toggle ${settingsForm?.[`social_${s.key}_enabled`] === "1" ? "active" : ""}`}
-                            onClick={() =>
-                              updateSettingField(
-                                `social_${s.key}_enabled`,
-                                settingsForm?.[`social_${s.key}_enabled`] === "1" ? "0" : "1"
-                              )
-                            }
-                            title={`Show ${s.label} in footer`}
-                            style={{ minWidth: 110 }}
-                          >
-                            {settingsForm?.[`social_${s.key}_enabled`] === "1" ? "Shown" : "Hidden"} · {s.label}
-                          </button>
-                          <input
-                            style={{ flex: "1 1 220px" }}
-                            placeholder={`${s.label} profile URL (https://…)`}
-                            value={settingsForm?.[`social_${s.key}_url`] || ""}
-                            onChange={(e) => updateSettingField(`social_${s.key}_url`, e.target.value)}
-                          />
-                        </div>
-                      ))}
+                      ].map((s) => {
+                        const isEnabled = settingsForm?.[`social_${s.key}_enabled`] === "1";
+                        return (
+                          <div key={s.key} className="admin-slide-toggle-row">
+                            <button
+                              type="button"
+                              role="switch"
+                              aria-checked={isEnabled}
+                              className="admin-slide-toggle-ctrl"
+                              onClick={() =>
+                                updateSettingField(
+                                  `social_${s.key}_enabled`,
+                                  isEnabled ? "0" : "1"
+                                )
+                              }
+                              title={`Click to ${isEnabled ? "hide" : "show"} ${s.label} in footer`}
+                            >
+                              <div className={`admin-slide-switch ${isEnabled ? "active" : ""}`}>
+                                <span className="admin-slide-track" />
+                              </div>
+                              <div className="admin-slide-label-group">
+                                <span className="admin-slide-label-name">{s.label}</span>
+                                <span className={`admin-slide-label-state ${isEnabled ? "active" : ""}`}>
+                                  {isEnabled ? "Shown" : "Hidden"}
+                                </span>
+                              </div>
+                            </button>
+                            <input
+                              style={{ flex: "1 1 240px" }}
+                              placeholder={`${s.label} profile URL (https://…)`}
+                              value={settingsForm?.[`social_${s.key}_url`] || ""}
+                              onChange={(e) => updateSettingField(`social_${s.key}_url`, e.target.value)}
+                            />
+                          </div>
+                        );
+                      })}
                     </div>
                     <button className="admin-primary small" type="submit" disabled={settingsSaving}>
                       <Save size={15} />

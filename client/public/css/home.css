@@ -932,7 +932,7 @@
 .home-benefits-section {
   position: relative !important;
   z-index: 20 !important;
-  margin-top: -38px !important;
+  /* margin-top: -38px !important; */
   margin-bottom: 36px !important;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
@@ -1518,7 +1518,7 @@
    ========================================================= */
 
 .home-products-section {
-  padding-top: 12px !important;
+  padding-top: 50px !important;
   padding-bottom: 50px !important;
 }
 
