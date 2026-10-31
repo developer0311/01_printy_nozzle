@@ -720,37 +720,90 @@ export default function Home() {
 
 
       {/* =================================================
-          BENEFITS STRIP
+          POPULAR PRODUCTS
       ================================================= */}
 
-      <section className="home-benefits-section">
+      <section className="home-products-section">
 
-        <div className="home-benefits-card">
+        <div className="home-products-heading">
+          <h2>Popular Products</h2>
+        </div>
 
-          {benefits.map((benefit, index) => (
-            <React.Fragment key={benefit.title}>
 
-              <div className="home-benefit-item">
+        {loading ? (
 
-                <div className="home-benefit-icon">
-                  <BenefitIcon type={benefit.icon} />
-                </div>
+          <div className="home-products-grid">
 
-                <div className="home-benefit-content">
-                  <h3>{benefit.title}</h3>
-                  <p>{benefit.text}</p>
-                </div>
+            {[1, 2, 3, 4, 5, 6].map((item) => (
+              <SkeletonCard key={item} />
+            ))}
+
+          </div>
+
+        ) : error ? (
+
+          <ErrorState message={error} />
+
+        ) : featured.length === 0 ? (
+
+          <div className="home-empty-products text-center py-5">
+            <p className="text-muted fs-5">No products available at the moment.</p>
+          </div>
+
+        ) : (
+
+          <div className="home-products-marquee-wrap">
+
+            <div
+              className="home-products-marquee"
+              ref={marqueeRef}
+              style={{
+                "--home-marquee-duration": `${MARQUEE_DURATION}ms`,
+              }}
+            >
+
+              <div
+                className="home-products-marquee-track"
+                ref={trackRef}
+              >
+
+                {[0, 1].map((copy) => (
+                  <div
+                    className="home-products-marquee-group"
+                    key={`marquee-group-${copy}`}
+                    aria-hidden={copy === 1 ? "true" : undefined}
+                  >
+                    {featured.map((product, index) =>
+                      renderPopularCard(product, index, copy)
+                    )}
+                  </div>
+                ))}
 
               </div>
 
-              {index !== benefits.length - 1 && (
-                <div className="home-benefit-divider"></div>
-              )}
+            </div>
 
-            </React.Fragment>
-          ))}
+            <button
+              type="button"
+              className="home-products-marquee-arrow home-products-marquee-arrow-prev"
+              onClick={() => nudgeMarquee(-1)}
+              aria-label="Show previous products"
+            >
+              <ChevronLeft size={20} strokeWidth={2.2} />
+            </button>
 
-        </div>
+            <button
+              type="button"
+              className="home-products-marquee-arrow home-products-marquee-arrow-next"
+              onClick={() => nudgeMarquee(1)}
+              aria-label="Show next products"
+            >
+              <ChevronRight size={20} strokeWidth={2.2} />
+            </button>
+
+          </div>
+
+        )}
 
       </section>
 
@@ -977,90 +1030,37 @@ export default function Home() {
 
 
       {/* =================================================
-          POPULAR PRODUCTS
+          BENEFITS STRIP
       ================================================= */}
 
-      <section className="home-products-section">
+      <section className="home-benefits-section">
 
-        <div className="home-products-heading">
-          <h2>Popular Products</h2>
-        </div>
+        <div className="home-benefits-card">
 
+          {benefits.map((benefit, index) => (
+            <React.Fragment key={benefit.title}>
 
-        {loading ? (
+              <div className="home-benefit-item">
 
-          <div className="home-products-grid">
+                <div className="home-benefit-icon">
+                  <BenefitIcon type={benefit.icon} />
+                </div>
 
-            {[1, 2, 3, 4, 5, 6].map((item) => (
-              <SkeletonCard key={item} />
-            ))}
-
-          </div>
-
-        ) : error ? (
-
-          <ErrorState message={error} />
-
-        ) : featured.length === 0 ? (
-
-          <div className="home-empty-products text-center py-5">
-            <p className="text-muted fs-5">No products available at the moment.</p>
-          </div>
-
-        ) : (
-
-          <div className="home-products-marquee-wrap">
-
-            <div
-              className="home-products-marquee"
-              ref={marqueeRef}
-              style={{
-                "--home-marquee-duration": `${MARQUEE_DURATION}ms`,
-              }}
-            >
-
-              <div
-                className="home-products-marquee-track"
-                ref={trackRef}
-              >
-
-                {[0, 1].map((copy) => (
-                  <div
-                    className="home-products-marquee-group"
-                    key={`marquee-group-${copy}`}
-                    aria-hidden={copy === 1 ? "true" : undefined}
-                  >
-                    {featured.map((product, index) =>
-                      renderPopularCard(product, index, copy)
-                    )}
-                  </div>
-                ))}
+                <div className="home-benefit-content">
+                  <h3>{benefit.title}</h3>
+                  <p>{benefit.text}</p>
+                </div>
 
               </div>
 
-            </div>
+              {index !== benefits.length - 1 && (
+                <div className="home-benefit-divider"></div>
+              )}
 
-            <button
-              type="button"
-              className="home-products-marquee-arrow home-products-marquee-arrow-prev"
-              onClick={() => nudgeMarquee(-1)}
-              aria-label="Show previous products"
-            >
-              <ChevronLeft size={20} strokeWidth={2.2} />
-            </button>
+            </React.Fragment>
+          ))}
 
-            <button
-              type="button"
-              className="home-products-marquee-arrow home-products-marquee-arrow-next"
-              onClick={() => nudgeMarquee(1)}
-              aria-label="Show next products"
-            >
-              <ChevronRight size={20} strokeWidth={2.2} />
-            </button>
-
-          </div>
-
-        )}
+        </div>
 
       </section>
 
