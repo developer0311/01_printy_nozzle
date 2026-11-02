@@ -75,6 +75,13 @@ try {
   console.warn("⚠️ filamentBatterySchema preload skipped:", e.message);
 }
 
+// Self-healing DB migration: activate all existing categories for storefront display
+try {
+  require("./utils/activateCategories");
+} catch (e) {
+  console.warn("⚠️ activateCategories preload skipped:", e.message);
+}
+
 // Client Routers
 const authRoutes = require("./routers/authRoutes");
 const profileRoutes = require("./routers/profileRoutes");

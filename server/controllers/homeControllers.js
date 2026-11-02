@@ -8,14 +8,13 @@ const getHomeData = async (req, res) => {
       "SELECT * FROM hero_banners WHERE is_active = 1 ORDER BY sort_order ASC"
     );
 
-    // Categories with images
+    // Categories with images (all active categories display on the storefront)
     const [categories] = await db.query(
       `SELECT c.id, c.name, c.slug, c.image_url,
               (SELECT COUNT(*) FROM products WHERE category_id = c.id AND is_active = 1) as product_count
        FROM categories c
        WHERE c.is_active = 1
-       ORDER BY c.sort_order ASC
-       LIMIT 6`
+       ORDER BY c.sort_order ASC, c.name ASC`
     );
 
     // Featured / Popular Products
