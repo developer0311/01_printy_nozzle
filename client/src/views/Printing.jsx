@@ -536,125 +536,119 @@ export default function Printing() {
             <div className="col-lg-8 mb-4 mb-lg-0">
               {/* STEP 1: UPLOAD */}
               <div className="mb-5">
-                <h3 className="section-label">
-                  <span className="section-label-number">1.</span> Upload Your 3D Model
-                </h3>
-
-                <div className="upload-viewer-grid">
-                  {/* Dropzone Card */}
-                  <div
-                    className={`upload-dropzone-card ${isDragActive ? "drag-active" : ""}`}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept={SUPPORTED_MODEL_ACCEPT}
-                      style={{ display: "none" }}
-                      onChange={(e) => {
-                        if (e.target.files?.[0]) handleFileUpload(e.target.files[0]);
-                        // Reset the input so re-attaching the SAME file still
-                        // fires onChange and re-renders its exact geometry.
-                        e.target.value = "";
-                      }}
-                    />
-                    <div className="dropzone-icon-wrap">
-                      <UploadCloud size={28} />
-                    </div>
-                    <div className="dropzone-title">Drag & drop your file here</div>
-                    <div className="dropzone-or">or</div>
-                    <button
-                      type="button"
-                      className="btn-choose-file"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        fileInputRef.current?.click();
-                      }}
-                    >
-                      Choose File
-                    </button>
-                    <div className="dropzone-supports">
-                      Supports: {SUPPORTED_MODEL_EXTS.map((e) => "." + e.toUpperCase()).join(" • ")}{" "}
+                <div className="step-header-row">
+                  <div>
+                    <h3 className="section-label mb-1">
+                      <span className="section-label-number">1.</span> Upload your 3D files
+                    </h3>
+                    <span className="step-label-sub">
+                      Supports {SUPPORTED_MODEL_EXTS.map((e) => "." + e.toUpperCase()).join(", ")}{" "}
                       {MAX_FILE_SIZE_MB === -1
                         ? "(No file size limit)"
-                        : `(Max file size: ${MAX_FILE_SIZE_MB}MB)`}
-                    </div>
+                        : `• Max ${MAX_FILE_SIZE_MB}MB per file`}
+                    </span>
                   </div>
+                  <button
+                    type="button"
+                    className="btn-add-more"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Plus size={16} />
+                    <span>{useSample || uploadedFile ? "Add more" : "Choose File"}</span>
+                  </button>
+                </div>
 
-                  {/* 3D Model Display Card */}
-                  <div className="viewer-display-card">
-                    {useSample || uploadedFile ? (
-                      <>
-                        <ModelViewer3D
-                          key={
-                            uploadedFile
-                              ? `${uploadedFile.name}-${uploadedFile.size}-${uploadedFile.lastModified}`
-                              : "sample"
-                          }
-                          file={uploadedFile}
-                          color={selectedColorHex}
-                          materialType={selectedMaterial?.id}
-                          density={selectedMaterial?.density}
-                          useSample={useSample}
-                          onAnalysis={handleModelAnalysis}
-                          onThumbnail={setModelThumb}
-                          onError={handleViewerError}
-                        />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept={SUPPORTED_MODEL_ACCEPT}
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    if (e.target.files?.[0]) handleFileUpload(e.target.files[0]);
+                    e.target.value = "";
+                  }}
+                />
+
+                <div className="upload-viewer-container">
+                  {useSample || uploadedFile ? (
+                    <div
+                      className={`viewer-display-card is-fullwidth ${isDragActive ? "drag-active" : ""}`}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                    >
+                      <ModelViewer3D
+                        key={
+                          uploadedFile
+                            ? `${uploadedFile.name}-${uploadedFile.size}-${uploadedFile.lastModified}`
+                            : "sample"
+                        }
+                        file={uploadedFile}
+                        color={selectedColorHex}
+                        materialType={selectedMaterial?.id}
+                        density={selectedMaterial?.density}
+                        useSample={useSample}
+                        onAnalysis={handleModelAnalysis}
+                        onThumbnail={setModelThumb}
+                        onError={handleViewerError}
+                        onRemove={handleRemoveModel}
+                      />
+                      {isOversized && (
                         <div className="viewer-meta-bar">
-                          <div className="viewer-meta-left">
-                            <span className="viewer-filename">{modelAnalysis.fileName}</span>
-                            {useSample && (
-                              <span className="viewer-demo-badge">Demo model</span>
-                            )}
-                            <div className="viewer-specs">
-                              <span>Size: {modelAnalysis.fileSizeMB} MB</span>
-                              <span className={isOversized ? "text-danger fw-semibold" : ""}>
-                                Dimensions: {modelAnalysis.dimensions.x} x {modelAnalysis.dimensions.y} x{" "}
-                                {modelAnalysis.dimensions.z} mm
-                              </span>
-                            </div>
-                            {isOversized && (
-                              <div className="dimension-warning-pill">
-                                <AlertTriangle size={13} />
-                                <span>
-                                  Exceeds max build volume (
-                                  {MAX_PRINT_WIDTH_MM === -1 ? "∞" : `${MAX_PRINT_WIDTH_MM}`} ×{" "}
-                                  {MAX_PRINT_DEPTH_MM === -1 ? "∞" : `${MAX_PRINT_DEPTH_MM}`} ×{" "}
-                                  {MAX_PRINT_HEIGHT_MM === -1 ? "∞" : `${MAX_PRINT_HEIGHT_MM}`} mm)
-                                </span>
-                              </div>
-                            )}
+                          <div className="dimension-warning-pill">
+                            <AlertTriangle size={13} />
+                            <span>
+                              Exceeds max build volume (
+                              {MAX_PRINT_WIDTH_MM === -1 ? "∞" : `${MAX_PRINT_WIDTH_MM}`} ×{" "}
+                              {MAX_PRINT_DEPTH_MM === -1 ? "∞" : `${MAX_PRINT_DEPTH_MM}`} ×{" "}
+                              {MAX_PRINT_HEIGHT_MM === -1 ? "∞" : `${MAX_PRINT_HEIGHT_MM}`} mm)
+                            </span>
                           </div>
-                          <button
-                            type="button"
-                            className="btn-remove-model"
-                            onClick={handleRemoveModel}
-                          >
-                            <Trash2 size={13} />
-                            <span>Remove</span>
-                          </button>
                         </div>
-                      </>
-                    ) : (
-                      <div
-                        className="d-flex flex-column align-items-center justify-content-center h-100 p-4 text-center"
-                        style={{ minHeight: "300px", background: "#f8fafc" }}
-                      >
-                        <Box size={44} className="text-muted mb-2" />
-                        <span className="text-secondary small mb-3">No 3D Model loaded</span>
-                        <button
-                          type="button"
-                          className="btn btn-outline-primary btn-sm"
-                          onClick={handleLoadSample}
-                        >
-                          Load Sample Rocket Model
-                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    /* Dropzone Card (Full Width) */
+                    <div
+                      className={`upload-dropzone-card is-fullwidth ${isDragActive ? "drag-active" : ""}`}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <div className="dropzone-icon-wrap">
+                        <UploadCloud size={32} />
                       </div>
-                    )}
-                  </div>
+                      <div className="dropzone-title">Drag & drop your 3D file here</div>
+                      <div className="dropzone-or">or</div>
+                      <button
+                        type="button"
+                        className="btn-choose-file"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          fileInputRef.current?.click();
+                        }}
+                      >
+                        Choose File
+                      </button>
+                      <div className="dropzone-supports">
+                        Supports: {SUPPORTED_MODEL_EXTS.map((e) => "." + e.toUpperCase()).join(" • ")}{" "}
+                        {MAX_FILE_SIZE_MB === -1
+                          ? "(No file size limit)"
+                          : `(Max file size: ${MAX_FILE_SIZE_MB}MB)`}
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-link text-decoration-none small text-muted mt-3"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleLoadSample();
+                        }}
+                      >
+                        or preview demo sample model
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
